@@ -139,6 +139,7 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_debug_key_value_pub(nullptr),
 	_debug_value_pub(nullptr),
 	_debug_vect_pub(nullptr),
+	_debug_array_pub(nullptr),
 	_gps_inject_data_pub(nullptr),
 	_command_ack_pub(nullptr),
 	_control_mode_sub(orb_subscribe(ORB_ID(vehicle_control_mode))),
@@ -315,6 +316,10 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 
 	case MAVLINK_MSG_ID_DEBUG_VECT:
 		handle_message_debug_vect(msg);
+		break;
+
+	case MAVLINK_MSG_ID_DEBUG_ARRAY:
+		handle_message_debug_array(msg);
 		break;
 
 	default:
@@ -2419,6 +2424,31 @@ void MavlinkReceiver::handle_message_debug_vect(mavlink_message_t *msg)
 
 	} else {
 		orb_publish(ORB_ID(debug_vect), _debug_vect_pub, &debug_topic);
+	}
+}
+
+void MavlinkReceiver::handle_message_debug_array(mavlink_message_t *msg)
+{
+	mavlink_debug_array_t debug_msg;
+	debug_array_s debug_topic = {};
+
+	mavlink_msg_debug_array_decode(msg, &debug_msg);
+
+	debug_topic.timestamp = hrt_absolute_time();
+	debug_topic.timestamp_ms = debug_msg.time_boot_ms;
+	debug_topic.id = debug_msg.id;
+	memcpy(debug_topic.name, debug_msg.name, sizeof(debug_topic.name));
+	debug_topic.name[sizeof(debug_topic.name) - 1] = '\0'; // enforce null termination
+
+	for (size_t i = 0; i < 60; i++) {
+		debug_topic.data[i] = debug_msg.data[i];
+	}
+
+	if (_debug_array_pub == nullptr) {
+		_debug_array_pub = orb_advertise(ORB_ID(debug_array), &debug_topic);
+
+	} else {
+		orb_publish(ORB_ID(debug_array), _debug_array_pub, &debug_topic);
 	}
 }
 

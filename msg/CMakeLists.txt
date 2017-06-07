@@ -46,6 +46,7 @@ set(msg_file_names
 	commander_state.msg
 	control_state.msg
 	cpuload.msg
+	debug_array.msg
 	debug_key_value.msg
 	debug_value.msg
 	debug_vect.msg
