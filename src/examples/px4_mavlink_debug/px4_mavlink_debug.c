@@ -50,6 +50,7 @@
 #include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/debug_value.h>
 #include <uORB/topics/debug_vect.h>
+#include <uORB/topics/debug_array.h>
 
 __EXPORT int px4_mavlink_debug_main(int argc, char *argv[]);
 
@@ -68,6 +69,10 @@ int px4_mavlink_debug_main(int argc, char *argv[])
 	/* advertise debug vect */
 	struct debug_vect_s dbg_vect = { .name = "vel3D", .x = 1.0f, .y = 2.0f, .z = 3.0f };
 	orb_advert_t pub_dbg_vect = orb_advertise(ORB_ID(debug_vect), &dbg_vect);
+
+	/* advertise debug array */
+	struct debug_array_s dbg_array = { .name = "dbg_array" };
+	orb_advert_t pub_dbg_array = orb_advertise(ORB_ID(debug_array), &dbg_array);
 
 	int value_counter = 0;
 
@@ -91,6 +96,14 @@ int px4_mavlink_debug_main(int argc, char *argv[])
 		dbg_vect.z = 3.0f * value_counter;
 		dbg_vect.timestamp_us = timestamp_us;
 		orb_publish(ORB_ID(debug_vect), pub_dbg_vect, &dbg_vect);
+
+		/* send one array */
+		for (size_t i = 0; i < 60; i++) {
+			dbg_array.data[i] = value_counter + i * 0.01f;
+		}
+
+		dbg_array.timestamp_ms = timestamp_ms;
+		orb_publish(ORB_ID(debug_array), pub_dbg_array, &dbg_array);
 
 		warnx("sent one more value..");
 
