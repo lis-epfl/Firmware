@@ -3220,7 +3220,7 @@ private:
 
 protected:
 	explicit MavlinkStreamDebugArray(Mavlink *mavlink) : MavlinkStream(mavlink),
-		_debug_sub(_mavlink->add_orb_subscription(ORB_ID(debug_array))),
+		_debug_array_sub(_mavlink->add_orb_subscription(ORB_ID(debug_array))),
 		_debug_time(0)
 	{}
 
@@ -3231,7 +3231,7 @@ protected:
 		if (_debug_array_sub->update(&_debug_time, &debug)) {
 			mavlink_debug_array_t msg = {};
 
-			msg.time_usec = debug.timestamp_us;
+			msg.time_boot_ms = debug.timestamp_ms;
 			msg.id = debug.id;
 			memcpy(msg.name, debug.name, sizeof(msg.name));
 			/* enforce null termination */
