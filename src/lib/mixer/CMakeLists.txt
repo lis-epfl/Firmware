@@ -53,6 +53,7 @@ set(geometry_files
 	quad_y.toml
 	tri_y.toml
 	twin_engine.toml
+	custom_platform.toml
 )
 
 set(geometries_list)

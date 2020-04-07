@@ -72,6 +72,10 @@ then
 		then
 			set MAV_TYPE 15
 		fi
+		if [ $MIXER = custom_platform ]
+		then 
+			set MAV_TYPE 14
+		fi
 	fi
 
 	# Set the mav type parameter.

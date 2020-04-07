@@ -1,0 +1,40 @@
+# The custom platfrom (N = 4) - LIS
+
+[info]
+key = "Nc"
+description = "The custom platform (N = 4) - LIS"
+
+[rotor_default]
+axis      = [0.0, 0.0, -1.0]
+
+
+
+[[rotors]]
+name      = "motor_0"
+position  = [0.18, 0.18, 0.0]
+direction = "ccw"
+Ct        = 0.092
+Cm        = 0.00796
+
+[[rotors]]
+name      = "motor_1"
+position  = [-0.18, -0.18, 0.0]
+direction = "ccw"
+Ct        = 0.092
+Cm        = 0.00796
+
+[[rotors]]
+name      = "motor_2"
+position  = [0.18, -0.18, 0.0]
+direction = "cw"
+Ct        = 0.092
+Cm        = 0.00796
+
+[[rotors]]
+name      = "motor_3"
+position  = [-0.18, 0.18, 0.0]
+direction = "cw"
+Ct        = 0.092
+Cm        = 0.00796
+
+
