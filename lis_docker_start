@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+if [ -z "$1" ]
+then
+    echo "No drone-test-rig location provided"
+    exit 1
+else
+    PX4=$1
+
+    if test -d "$PX4"; then
+      echo "drone-test-rig found!"
+    else
+      echo "drone-test-rig not found!"
+      exit 1
+    fi
+fi
+
+if [ -z "$2" ]
+then
+    echo "No modular-adaptive-ncopter location provided"
+    exit 1
+else
+    PX4=$1
+
+    if test -d "$PX4"; then
+      echo "modular-adaptive-ncopter found!"
+    else
+      echo "modular-adaptive-ncopter not found!"
+      exit 1
+    fi
+fi
+
+
+# Build the image
+docker build -t lis-px4-firmware -f $dir/lis_DOCKERFILE $dir
+
+# enable access to xhost from the container
+xhost +
+
+# Remove old container
+containerRunning=$(docker inspect --format="{{ .State.Running }}" lis-px4-firmware 2> /dev/null)
+
+if [ "$containerRunning" == "true" ]; then
+    echo Delete old container ...
+    docker rm -f lis-px4-firmware
+fi
+
+echo Remove images ...
+docker image prune -f
+
+echo Remove containers ...
+docker container prune -f
+
+# Run docker, setup and keep running
+docker run -dt \
+--privileged \
+--env=LOCAL_USER_ID="$(id -u)" \
+-v $dir:/root/firmware/:rw \
+-v $1/src/api_interface:/root/src/api_interface/:rw \
+-v $1/src/drone_prepper:/root/src/drone_prepper/:rw \
+-v $1/src/drone_test_rig:/root/src/drone_test_rig/:rw \
+-v $1/src/dtr_msgs:/root/src/dtr_msgs/:rw \
+-v $1/src/imu_pruner:/root/src/imu_pruner/:rw \
+-v $1/src/log_processor:/root/src/log_processor/:rw \
+-v $1/src/pid_setter:/root/src/pid_setter/:rw \
+-v $1/src/recorder:/root/src/recorder/:rw \
+-v $1/src/step_controller:/root/src/step_controller/:rw \
+-v $1/src/user_interface:/root/src/user_interface/:rw \
+-v $2/custom_platform:/root/src/custom_platform/:rw \
+-v $2/tuning:/root/src/tuning/:rw \
+-v $2/offboard_example_package:/root/src/offboard_example_package/:rw \
+-v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+-e DISPLAY=:0 \
+-p 14556:14556/udp \
+--name lis-px4-firmware \
+lis-px4-firmware
+
+
+# Show how to connect to this container
+clear
+echo "(Docker is running in the background, you can close this window. If something went wrong, you can restart the container with the same command and start over)"
+echo ""
+echo ""
+echo ""
+echo "Ready to Connect to the container with following command"
+echo "********************************************************"
+echo "********************************************************"
+echo "***                                                  ***"
+echo "***  docker exec -it -w /root lis-px4-firmware bash  ***"
+echo "***                                                  ***"
+echo "********************************************************"
+echo "***  First login:                                    ***"
+echo "***      => ./lis_setup && source lis_source         ***"
+echo "***  to setup and source                             ***"
+echo "***                                                  ***"
+echo "***  Additional logins:                              ***"
+echo "***      => source lis_source                        ***"
+echo "***  to source (already setup during first login)    ***"
+echo "********************************************************"
+echo "********************************************************"
+
+
+# Get the stats of the container
+echo ""
+echo ""
+echo "To monitor the containers resources:"
+echo "    => docker stats"

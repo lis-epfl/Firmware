@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# Source the custom platform files and update paths
+echo "Source custom platform and update paths ..."
+cd $dir/src/custom_platform
+source setup.bash
+
+
+echo ""
+echo ""
+echo ""
+echo "Try:"
+echo "    => roslaunch custom_platform custom_platform_mavros_sitl.launch       : to spawn a custom model"
+echo "    => rosrun offboard_example_package offboard_example_package_node      : to make it hover"
+echo ""
+echo "Or have a look at the README of the 'tuning' package for more information. Have fun!"
+echo ""
+echo ""
+echo ""

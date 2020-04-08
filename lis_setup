@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+echo "Setup all tools:"
+
+# Catkin make
+echo "Catkin make ..."
+cd $dir
+catkin_make
+
+# Clean the PX4
+echo "Build PX4 ..."
+cd $dir/firmware
+#git fetch --all --tags
+#make distclean
+#make clean
+make
+
+# Link PX4
+echo "Link PX4 and build GAZEBO ..."
+cd $dir/src/custom_platform
+bash link_PX4 ../../firmware
+echo "THERE MIGHT BE AN ERROR IN THE OPTICAL FLOW PLUGIN --> WILL GET FIXED IN THE NEXT RELEASE AND DOES NOT INFLUENCE THE CURRENT BEHAVIOUR!"
+
+# Source the custom platform files and update paths
+source $dir/lis_source
+
+# Done
+cd $dir
+clear
+echo "Docker container is ready and setup with:"
+echo "- .bashrc:         source ROS melodic"
+echo "- catkin:          init && make"
+echo "- PX4 firmware:    make"
+echo "- custom platform: link_PX4 && make"
+echo ""
+echo ""
+echo ""
+echo "Source custom platform:"
+echo "    => source lis_source"

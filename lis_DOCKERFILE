@@ -1,0 +1,30 @@
+FROM px4io/px4-dev-ros-melodic:latest
+
+# Use bash
+SHELL ["/bin/bash", "-c"]
+
+# Home of root
+WORKDIR /root
+
+# Copy setup script
+COPY ./lis_setup ./lis_source /root/
+
+# Install python libs
+RUN pip install \
+seaborn
+
+# Setup catkin workspace
+RUN \
+source /opt/ros/melodic/setup.bash && \
+mkdir -p src && \
+cd src && \
+catkin_init_workspace && \
+cd .. && \
+catkin_make && \
+source devel/setup.bash
+
+# Add the scripts to source to the .bashrc and source it
+RUN \
+echo "source /opt/ros/melodic/setup.bash" >> .bashrc && \
+echo "source /root/devel/setup.bash" >> .bashrc && \
+source .bashrc
