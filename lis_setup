@@ -12,9 +12,8 @@ catkin_make
 # Clean the PX4
 echo "Build PX4 ..."
 cd $dir/firmware
-#git fetch --all --tags
-#make distclean
-#make clean
+git fetch --all --tags
+git submodule update --init --recursive
 make
 
 # Link PX4
