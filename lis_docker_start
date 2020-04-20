@@ -10,7 +10,7 @@ else
     PX4=$1
 
     if test -d "$PX4"; then
-      echo "drone-test-rig found!"
+      echo "drone-test-rig in: $1"
     else
       echo "drone-test-rig not found!"
       exit 1
@@ -22,10 +22,10 @@ then
     echo "No modular-adaptive-ncopter location provided"
     exit 1
 else
-    PX4=$1
+    PX4=$2
 
     if test -d "$PX4"; then
-      echo "modular-adaptive-ncopter found!"
+      echo "modular-adaptive-ncopter in: $2"
     else
       echo "modular-adaptive-ncopter not found!"
       exit 1
@@ -56,6 +56,7 @@ docker container prune -f
 # Run docker, setup and keep running
 docker run -dt \
 --privileged \
+--dns 8.8.8.8 \
 --env=LOCAL_USER_ID="$(id -u)" \
 -v $dir:/root/firmware/:rw \
 -v $1/src/api_interface:/root/src/api_interface/:rw \
