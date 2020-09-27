@@ -38,10 +38,13 @@
 #pragma once
 
 #include "sensor_bridge.hpp"
-#include <uORB/topics/battery_status.h>
+#include <uORB/topics/battery_status_multi_pack.h>
 #include <uavcan/equipment/power/BatteryInfo.hpp>
 #include <drivers/drv_hrt.h>
 #include <px4_platform_common/module_params.h>
+
+#define BATTERY_UPDATE_TIMEOUT_NS 5000000000
+#define MAX_BATTERIES_INSTANCE 16
 
 class UavcanBatteryBridge : public UavcanCDevSensorBridgeBase, public ModuleParams
 {
@@ -77,4 +80,7 @@ private:
 	float _discharged_mah_loop = 0.f;
 	uint8_t _warning;
 	hrt_abstime _last_timestamp;
+
+	battery_status_multi_pack_s batteries{};
+	uint64_t batteries_last_update[MAX_BATTERIES_INSTANCE] = {0};
 };
