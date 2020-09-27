@@ -42,6 +42,7 @@ set(msg_files
 	airspeed.msg
 	airspeed_validated.msg
 	battery_status.msg
+	battery_status_multi_pack.msg  # custom topic
 	camera_capture.msg
 	camera_trigger.msg
 	cellular_status.msg
