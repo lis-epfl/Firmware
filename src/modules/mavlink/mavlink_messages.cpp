@@ -561,6 +561,7 @@ public:
 private:
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _cpuload_sub{ORB_ID(cpuload)};
+	uORB::Subscription _battery_status_multi_pack_sub{ORB_ID(battery_status_multi_pack)};
 	uORB::Subscription _battery_status_sub[ORB_MULTI_MAX_INSTANCES] {
 		{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}, {ORB_ID(battery_status), 2}, {ORB_ID(battery_status), 3}
 	};
@@ -569,6 +570,58 @@ private:
 	MavlinkStreamSysStatus(MavlinkStreamSysStatus &) = delete;
 	MavlinkStreamSysStatus &operator = (const MavlinkStreamSysStatus &) = delete;
 
+	void get_lowest_battery(uint16_t &voltage_mV, int16_t &current_cA, int8_t &remaining_pct)
+	{
+		// Information for lowest battery pack
+		uint16_t lowest_pack_voltage_mV = UINT16_MAX;	//////
+		int16_t lowest_pack_current_cA = -1;		//MUST BE THE SAME PACK!
+		int8_t lowest_pack_remaining_pct = -1;		//////
+
+		// Check for topic update
+		battery_status_s battery_status[ORB_MULTI_MAX_INSTANCES] {};
+		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
+		{
+			if (_battery_status_sub[i].updated())
+			{
+				_battery_status_sub[i].copy(&battery_status[i]);
+
+				// Find the pack with lowest remaining percentage
+				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
+				if (battery_status[i].connected && (ceilf(battery_status[i].remaining * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
+				{
+					lowest_pack_voltage_mV = battery_status[i].voltage_filtered_v * 1000.0f;;
+					lowest_pack_current_cA = battery_status[i].current_filtered_a * 100.0f;;
+					lowest_pack_remaining_pct = ceilf(battery_status[i].remaining * 100.0f);
+				}
+			}
+		}
+
+		battery_status_multi_pack_s battery_status_multi_pack {};
+		if (_battery_status_multi_pack_sub.updated())
+		{
+			_battery_status_multi_pack_sub.copy(&battery_status_multi_pack);
+
+			// Check from battery_status_multi_pack
+			for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+			{
+				// Find the pack with lowest remaining percentage
+				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
+				if (battery_status_multi_pack.connected[i] && (ceilf(battery_status_multi_pack.remaining[i] * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
+				{
+					lowest_pack_voltage_mV = battery_status_multi_pack.voltage_filtered_v[i] * 1000.0f;;
+					lowest_pack_current_cA = battery_status_multi_pack.current_filtered_a[i] * 100.0f;;
+					lowest_pack_remaining_pct = ceilf(battery_status_multi_pack.remaining[i] * 100.0f);
+				}
+			}
+		}
+
+		// Pass data back to the funtion caller
+		voltage_mV = lowest_pack_voltage_mV;
+		current_cA = lowest_pack_current_cA;
+		remaining_pct = lowest_pack_remaining_pct;
+		return;
+	}
+
 protected:
 	explicit MavlinkStreamSysStatus(Mavlink *mavlink) : MavlinkStream(mavlink)
 	{
@@ -576,34 +629,12 @@ protected:
 
 	bool send(const hrt_abstime t) override
 	{
-		bool updated_battery = false;
-
-		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-			if (_battery_status_sub[i].updated()) {
-				updated_battery = true;
-			}
-		}
-
-		if (_status_sub.updated() || _cpuload_sub.updated() || updated_battery) {
+		if (_status_sub.updated() || _cpuload_sub.updated()) {
 			vehicle_status_s status{};
 			_status_sub.copy(&status);
 
 			cpuload_s cpuload{};
 			_cpuload_sub.copy(&cpuload);
-
-			battery_status_s battery_status[ORB_MULTI_MAX_INSTANCES] {};
-
-			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-				_battery_status_sub[i].copy(&battery_status[i]);
-			}
-
-			int lowest_battery_index = 0;
-
-			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-				if (battery_status[i].connected && (battery_status[i].remaining < battery_status[lowest_battery_index].remaining)) {
-					lowest_battery_index = i;
-				}
-			}
 
 			mavlink_sys_status_t msg{};
 
@@ -613,23 +644,7 @@ protected:
 
 			msg.load = cpuload.load * 1000.0f;
 
-			// TODO: Determine what data should be put here when there are multiple batteries.
-			//  Right now, it uses the lowest battery. This is a safety decision, because if a client is only checking
-			//  one battery using this message, it should be the lowest.
-			//  In the future, this should somehow determine the "main" battery, or use the "type" field of BATTERY_STATUS
-			//  to determine which battery is more important at a given time.
-			const battery_status_s &lowest_battery = battery_status[lowest_battery_index];
-
-			if (lowest_battery.connected) {
-				msg.voltage_battery = lowest_battery.voltage_filtered_v * 1000.0f;
-				msg.current_battery = lowest_battery.current_filtered_a * 100.0f;
-				msg.battery_remaining = ceilf(lowest_battery.remaining * 100.0f);
-
-			} else {
-				msg.voltage_battery = UINT16_MAX;
-				msg.current_battery = -1;
-				msg.battery_remaining = -1;
-			}
+			get_lowest_battery(msg.voltage_battery, msg.current_battery, msg.battery_remaining);
 
 			mavlink_msg_sys_status_send_struct(_mavlink->get_channel(), &msg);
 
