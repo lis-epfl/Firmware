@@ -719,7 +719,6 @@ private:
 	MavlinkStreamBatteryStatus &operator = (const MavlinkStreamSysStatus &) = delete;
 
 	static const uint8_t MAX_BATTERY_STATUS_MESSAGE_PER_CALL = 5;
-	static const uint8_t MAX_MULTI_PACK_COUNT = 16;
 	bool send_uorb_battery_status_on_next_sequence = true;
 	uint8_t multi_pack_index = 0;
 
@@ -813,7 +812,7 @@ private:
 		}
 
 		// iterate through the multi pack message while there is message space
-		while (multi_pack_index < MAX_MULTI_PACK_COUNT && message_space_available)
+		while (multi_pack_index < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT && message_space_available)
 		{
 			// no more data down the array
 			// should be checked first to save time
@@ -872,8 +871,8 @@ private:
 			multi_pack_index++;
 		}
 
-		// sanitize index before exit, index never >= MAX_MULTI_PACK_COUNT
-		multi_pack_index = multi_pack_index % MAX_MULTI_PACK_COUNT;
+		// sanitize index before exit, index never >= battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT
+		multi_pack_index = multi_pack_index % battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT;
 
 		return;
 	}
