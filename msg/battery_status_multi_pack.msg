@@ -1,5 +1,7 @@
 uint64 timestamp			# time since system start (microseconds)
 
+uint8 MAX_BATTERY_PACK_COUNT = 16   	# maximum number of battery supported
+
 # battery source static const
 uint8 BATTERY_SOURCE_POWER_MODULE = 0
 uint8 BATTERY_SOURCE_EXTERNAL = 1
