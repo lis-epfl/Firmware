@@ -837,7 +837,7 @@ private:
 			bat_msg.time_remaining = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.run_time_to_empty[multi_pack_index] * 60 : 0;
 
 			// battery discharge information
-			bat_msg.current_battery = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.current_filtered_a[multi_pack_index] * 100 : -1;
+			bat_msg.current_battery = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.current_a[multi_pack_index] * 100 : -1;
 			bat_msg.battery_remaining = (battery_status_multi_pack.connected[multi_pack_index]) ? ceilf(battery_status_multi_pack.remaining[multi_pack_index] * 100.0f) : -1;
 			bat_msg.charge_state = get_charge_state(battery_status_multi_pack.warning[multi_pack_index]);
 
