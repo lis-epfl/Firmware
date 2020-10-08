@@ -608,8 +608,8 @@ private:
 				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
 				if (battery_status_multi_pack.connected[i] && (ceilf(battery_status_multi_pack.remaining[i] * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
 				{
-					lowest_pack_voltage_mV = battery_status_multi_pack.voltage_filtered_v[i] * 1000.0f;;
-					lowest_pack_current_cA = battery_status_multi_pack.current_filtered_a[i] * 100.0f;;
+					lowest_pack_voltage_mV = battery_status_multi_pack.voltage_v[i] * 1000.0f;;
+					lowest_pack_current_cA = battery_status_multi_pack.current_a[i] * 100.0f;;
 					lowest_pack_remaining_pct = ceilf(battery_status_multi_pack.remaining[i] * 100.0f);
 				}
 			}
@@ -857,7 +857,7 @@ private:
 				if (battery_status_multi_pack.connected[multi_pack_index]
 				    && (cell < battery_status_multi_pack.cell_count[multi_pack_index]))
 				{
-					bat_msg.voltages[cell] = (battery_status_multi_pack.voltage_filtered_v[multi_pack_index] / battery_status_multi_pack.cell_count[multi_pack_index]) * 1000.0f;
+					bat_msg.voltages[cell] = (battery_status_multi_pack.voltage_v[multi_pack_index] / battery_status_multi_pack.cell_count[multi_pack_index]) * 1000.0f;
 
 				} else {
 					bat_msg.voltages[cell] = UINT16_MAX;
