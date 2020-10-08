@@ -128,9 +128,7 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 
 	batteries.timestamp = hrt_absolute_time();
 	batteries.voltage_v[array_index] = msg.voltage;
-	batteries.voltage_filtered_v[array_index] = msg.voltage;
 	batteries.current_a[array_index] = msg.current;
-	batteries.current_filtered_a[array_index] = msg.current;
 	// battery.average_current_a = msg.;
 
 	sumDischarged(batteries.timestamp, batteries.current_a[array_index]);

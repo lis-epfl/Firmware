@@ -15,9 +15,7 @@ uint8 BATTERY_WARNING_EMERGENCY = 3   	# immediate landing required
 uint8 BATTERY_WARNING_FAILED = 4   	# the battery has failed completely
 
 float32[16] voltage_v			# Battery voltage in volts, 0 if unknown
-float32[16] voltage_filtered_v		# Battery voltage in volts, filtered, 0 if unknown
 float32[16] current_a			# Battery current in amperes, -1 if unknown
-float32[16] current_filtered_a		# Battery current in amperes, filtered, 0 if unknown
 float32[16] average_current_a		# Battery current average in amperes, -1 if unknown
 float32[16] discharged_mah		# Discharged amount in mAh, -1 if unknown
 float32[16] remaining			# From 1 to 0, -1 if unknown
@@ -35,6 +33,9 @@ uint16[16] average_time_to_empty   	# predicted remaining battery capacity based
 uint16[16] serial_number       		# serial number of the battery pack
 uint16[16] state_of_health		# state of health. FullChargeCapacity/DesignCapacity.
 uint16[16] max_error 			# max error, expected margin of error in % in the state-of-charge calculation with a range of 1 to 100%
+uint8[16] low_voltage			# voltage to trigger low battery voltage failsafe
+uint8[16] critical_voltage		# voltage to trigger critical battery voltage failsafe
+
 
 uint8[16] id                		# ID number of a battery. Should be unique and consistent for the lifetime of a vehicle. 1-indexed.
 bool[16] is_powering_off		# Power off event imminent indication, false if unknown
