@@ -105,6 +105,15 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	// Transfer CAN message to uORB topic.
 
 	batteries.timestamp = hrt_absolute_time();
+
+	// decode model instance id
+	// TODO: Should we add a check to see if we need to decode every round?
+
+	batteries.cell_count[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_CELL_COUNT_FROM_MSB_BIT) >> MDL_ID_TAKE_4_BITS);
+	batteries.serial_number[array_index] = (uint16_t)(((uint32_t)msg.model_instance_id << MDL_ID_SERIAL_FROM_MSB_BIT) >> MDL_ID_TAKE_12_BITS);
+	batteries.low_voltage[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_LOW_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS);
+	batteries.critical_voltage[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_CRIT_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS);
+
 	batteries.voltage_v[array_index] = msg.voltage;
 	batteries.current_a[array_index] = msg.current;
 	// battery.average_current_a = msg.;
@@ -113,25 +122,12 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	batteries.discharged_mah[array_index] = _discharged_mah;
 
 	batteries.remaining[array_index] = msg.state_of_charge_pct / 100.0f; // between 0 and 1
-	// battery.scale = msg.; // Power scaling factor, >= 1, or -1 if unknown
-	batteries.temperature[array_index] = msg.temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS; // Kelvin to Celcius
 
-	// TODO: How to check for cell count? Param or read from CAN?
-	batteries.cell_count[array_index] = 3;
+	batteries.temperature[array_index] = msg.temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS; // Kelvin to Celcius
 
 	batteries.connected[array_index] = hrt_absolute_time() - batteries_last_update[array_index] < BATTERY_UPDATE_TIMEOUT_NS;
 	batteries.source[array_index] = msg.status_flags & uavcan::equipment::power::BatteryInfo::STATUS_FLAG_IN_USE;
-	// battery.priority = msg.;
 	batteries.capacity[array_index] = msg.full_charge_capacity_wh;
-	// battery.cycle_count = msg.;
-	// battery.run_time_to_empty = msg.;
-	// battery.average_time_to_empty = msg.;
-	batteries.serial_number[array_index] = msg.model_instance_id;
-
-	// battery.voltage_cell_v[0] = msg.;
-	// battery.max_cell_voltage_delta = msg.;
-
-	// battery.is_powering_off = msg.;
 
 	determineWarning(batteries.remaining[array_index]);
 	batteries.warning[array_index] = _warning;
