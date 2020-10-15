@@ -66,6 +66,7 @@
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/airspeed_validated.h>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/battery_status_multi_pack.h>
 #include <uORB/topics/camera_capture.h>
 #include <uORB/topics/camera_trigger.h>
 #include <uORB/topics/collision_report.h>
@@ -560,13 +561,63 @@ public:
 private:
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _cpuload_sub{ORB_ID(cpuload)};
-	uORB::Subscription _battery_status_sub[ORB_MULTI_MAX_INSTANCES] {
-		{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}, {ORB_ID(battery_status), 2}, {ORB_ID(battery_status), 3}
-	};
+	uORB::Subscription _battery_status_multi_pack_sub{ORB_ID(battery_status_multi_pack)};
+	// Reduce the number of standard battery topics to 2 to prevent stability issue.
+	uORB::Subscription _battery_status_sub[2] {{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}};
 
 	/* do not allow top copying this class */
 	MavlinkStreamSysStatus(MavlinkStreamSysStatus &) = delete;
 	MavlinkStreamSysStatus &operator = (const MavlinkStreamSysStatus &) = delete;
+
+	void get_lowest_battery(uint16_t &voltage_mV, int16_t &current_cA, int8_t &remaining_pct)
+	{
+		// Information for lowest battery pack
+		uint16_t lowest_pack_voltage_mV = UINT16_MAX;	//////
+		int16_t lowest_pack_current_cA = -1;		//MUST BE THE SAME PACK!
+		int8_t lowest_pack_remaining_pct = -1;		//////
+
+		// Check for topic update
+		battery_status_s battery_status[2] {};
+		for (int i = 0; i < 2; i++)
+		{
+			if (_battery_status_sub[i].updated())
+			{
+				_battery_status_sub[i].copy(&battery_status[i]);
+
+				// Find the pack with lowest remaining percentage
+				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
+				if (battery_status[i].connected && (ceilf(battery_status[i].remaining * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
+				{
+					lowest_pack_voltage_mV = battery_status[i].voltage_filtered_v * 1000.0f;;
+					lowest_pack_current_cA = battery_status[i].current_filtered_a * 100.0f;;
+					lowest_pack_remaining_pct = ceilf(battery_status[i].remaining * 100.0f);
+				}
+			}
+		}
+
+		battery_status_multi_pack_s batteries;
+		if (_battery_status_multi_pack_sub.update(&batteries))
+		{
+			// Check from battery_status_multi_pack
+			for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+			{
+				// Find the pack with lowest remaining percentage
+				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
+				if (batteries.connected[i] && (ceilf(batteries.remaining[i] * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
+				{
+					lowest_pack_voltage_mV = batteries.voltage_v[i] * 1000.0f;;
+					lowest_pack_current_cA = batteries.current_a[i] * 100.0f;;
+					lowest_pack_remaining_pct = ceilf(batteries.remaining[i] * 100.0f);
+				}
+			}
+		}
+
+		// Pass data back to the funtion caller
+		voltage_mV = lowest_pack_voltage_mV;
+		current_cA = lowest_pack_current_cA;
+		remaining_pct = lowest_pack_remaining_pct;
+		return;
+	}
 
 protected:
 	explicit MavlinkStreamSysStatus(Mavlink *mavlink) : MavlinkStream(mavlink)
@@ -575,34 +626,12 @@ protected:
 
 	bool send(const hrt_abstime t) override
 	{
-		bool updated_battery = false;
-
-		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-			if (_battery_status_sub[i].updated()) {
-				updated_battery = true;
-			}
-		}
-
-		if (_status_sub.updated() || _cpuload_sub.updated() || updated_battery) {
+		if (_status_sub.updated() || _cpuload_sub.updated()) {
 			vehicle_status_s status{};
 			_status_sub.copy(&status);
 
 			cpuload_s cpuload{};
 			_cpuload_sub.copy(&cpuload);
-
-			battery_status_s battery_status[ORB_MULTI_MAX_INSTANCES] {};
-
-			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-				_battery_status_sub[i].copy(&battery_status[i]);
-			}
-
-			int lowest_battery_index = 0;
-
-			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-				if (battery_status[i].connected && (battery_status[i].remaining < battery_status[lowest_battery_index].remaining)) {
-					lowest_battery_index = i;
-				}
-			}
 
 			mavlink_sys_status_t msg{};
 
@@ -612,23 +641,7 @@ protected:
 
 			msg.load = cpuload.load * 1000.0f;
 
-			// TODO: Determine what data should be put here when there are multiple batteries.
-			//  Right now, it uses the lowest battery. This is a safety decision, because if a client is only checking
-			//  one battery using this message, it should be the lowest.
-			//  In the future, this should somehow determine the "main" battery, or use the "type" field of BATTERY_STATUS
-			//  to determine which battery is more important at a given time.
-			const battery_status_s &lowest_battery = battery_status[lowest_battery_index];
-
-			if (lowest_battery.connected) {
-				msg.voltage_battery = lowest_battery.voltage_filtered_v * 1000.0f;
-				msg.current_battery = lowest_battery.current_filtered_a * 100.0f;
-				msg.battery_remaining = ceilf(lowest_battery.remaining * 100.0f);
-
-			} else {
-				msg.voltage_battery = UINT16_MAX;
-				msg.current_battery = -1;
-				msg.battery_remaining = -1;
-			}
+			get_lowest_battery(msg.voltage_battery, msg.current_battery, msg.battery_remaining);
 
 			mavlink_msg_sys_status_send_struct(_mavlink->get_channel(), &msg);
 
@@ -671,9 +684,19 @@ public:
 	{
 		unsigned total_size = 0;
 
-		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
-			if (_battery_status_sub[i].advertised()) {
-				total_size += MAVLINK_MSG_ID_BATTERY_STATUS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+		if (_battery_status_multi_pack_sub.advertised())
+		{
+			// Our size is dynamic and it's depend on each function call.
+			// We can't know the exact size until it is the time to send.
+			// This function is called for performance analysis. So, we will send the maximum possible size.
+			total_size = MAX_BATTERY_STATUS_MESSAGE_PER_CALL * (MAVLINK_MSG_ID_BATTERY_STATUS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES);
+		}
+		else
+		{
+			for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+				if (_battery_status_sub[i].advertised()) {
+					total_size += MAVLINK_MSG_ID_BATTERY_STATUS_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+				}
 			}
 		}
 
@@ -685,23 +708,49 @@ private:
 		{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}, {ORB_ID(battery_status), 2}, {ORB_ID(battery_status), 3}
 	};
 
+	// subscribe to the new topic
+	uORB::Subscription _battery_status_multi_pack_sub{ORB_ID(battery_status_multi_pack)};
+
 	/* do not allow top copying this class */
 	MavlinkStreamBatteryStatus(MavlinkStreamSysStatus &) = delete;
 	MavlinkStreamBatteryStatus &operator = (const MavlinkStreamSysStatus &) = delete;
 
-protected:
-	explicit MavlinkStreamBatteryStatus(Mavlink *mavlink) : MavlinkStream(mavlink)
-	{
+	static const uint8_t MAX_BATTERY_STATUS_MESSAGE_PER_CALL = 5;
+	bool send_uorb_battery_status_on_next_sequence = true;
+	uint8_t multi_pack_index = 0;
+
+	MAV_BATTERY_CHARGE_STATE get_charge_state(uint8_t battery_status_warning)
+	{	switch (battery_status_warning)
+		{
+			case (battery_status_s::BATTERY_WARNING_NONE):
+				return MAV_BATTERY_CHARGE_STATE_OK;
+
+			case (battery_status_s::BATTERY_WARNING_LOW):
+				return MAV_BATTERY_CHARGE_STATE_LOW;
+
+			case (battery_status_s::BATTERY_WARNING_CRITICAL):
+				return MAV_BATTERY_CHARGE_STATE_CRITICAL;
+
+			case (battery_status_s::BATTERY_WARNING_EMERGENCY):
+				return MAV_BATTERY_CHARGE_STATE_EMERGENCY;
+
+			case (battery_status_s::BATTERY_WARNING_FAILED):
+				return MAV_BATTERY_CHARGE_STATE_FAILED;
+
+			default:
+				return MAV_BATTERY_CHARGE_STATE_UNDEFINED;
+		}
 	}
 
-	bool send(const hrt_abstime t) override
+	bool send_from_battery_status(uint8_t &message_space_available)
 	{
 		bool updated = false;
-
-		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+		for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
+		{
 			battery_status_s battery_status;
 
-			if (_battery_status_sub[i].update(&battery_status)) {
+			if (message_space_available && _battery_status_sub[i].update(&battery_status))
+			{
 				/* battery status message with higher resolution */
 				mavlink_battery_status_t bat_msg{};
 				// TODO: Determine how to better map between battery ID within the firmware and in MAVLink
@@ -713,32 +762,7 @@ protected:
 				bat_msg.current_battery = (battery_status.connected) ? battery_status.current_filtered_a * 100 : -1;
 				bat_msg.battery_remaining = (battery_status.connected) ? ceilf(battery_status.remaining * 100.0f) : -1;
 				bat_msg.time_remaining = (battery_status.connected) ? battery_status.run_time_to_empty * 60 : 0;
-
-				switch (battery_status.warning) {
-				case (battery_status_s::BATTERY_WARNING_NONE):
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_OK;
-					break;
-
-				case (battery_status_s::BATTERY_WARNING_LOW):
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_LOW;
-					break;
-
-				case (battery_status_s::BATTERY_WARNING_CRITICAL):
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_CRITICAL;
-					break;
-
-				case (battery_status_s::BATTERY_WARNING_EMERGENCY):
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_EMERGENCY;
-					break;
-
-				case (battery_status_s::BATTERY_WARNING_FAILED):
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_FAILED;
-					break;
-
-				default:
-					bat_msg.charge_state = MAV_BATTERY_CHARGE_STATE_UNDEFINED;
-					break;
-				}
+				bat_msg.charge_state = get_charge_state(battery_status.warning);
 
 				// check if temperature valid
 				if (battery_status.connected && PX4_ISFINITE(battery_status.temperature)) {
@@ -763,12 +787,110 @@ protected:
 
 				mavlink_msg_battery_status_send_struct(_mavlink->get_channel(), &bat_msg);
 
+				message_space_available--;
 				updated = true;
 			}
 
 		}
-
 		return updated;
+	}
+
+	void send_from_battery_status_multi_pack(uint8_t &message_space_available)
+	{
+		battery_status_multi_pack_s battery_status_multi_pack;
+
+		// check for update
+		if (!_battery_status_multi_pack_sub.update(&battery_status_multi_pack)) {
+
+			// no update from battery_status_multi_pack
+			// reset index and exit
+			multi_pack_index = 0;
+			return;
+		}
+
+		// iterate through the multi pack message while there is message space
+		while (multi_pack_index < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT && message_space_available)
+		{
+			// no more data down the array
+			// should be checked first to save time
+			if (battery_status_multi_pack.id[multi_pack_index] == 255)
+			{
+				// reset index and exit
+				multi_pack_index = 0;
+				return;
+			}
+
+			// read and send
+			mavlink_battery_status_t bat_msg{};
+
+			// battery fixed property
+			bat_msg.id = battery_status_multi_pack.id[multi_pack_index];
+			bat_msg.battery_function = MAV_BATTERY_FUNCTION_ALL; // TODO: correctly identify battery function
+			bat_msg.type = MAV_BATTERY_TYPE_LIPO;
+
+			// battery consumed information
+			bat_msg.current_consumed = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.discharged_mah[multi_pack_index] : -1;
+			bat_msg.energy_consumed = -1;
+			bat_msg.time_remaining = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.run_time_to_empty[multi_pack_index] * 60 : 0;
+
+			// battery discharge information
+			bat_msg.current_battery = (battery_status_multi_pack.connected[multi_pack_index]) ? battery_status_multi_pack.current_a[multi_pack_index] * 100 : -1;
+			bat_msg.battery_remaining = (battery_status_multi_pack.connected[multi_pack_index]) ? ceilf(battery_status_multi_pack.remaining[multi_pack_index] * 100.0f) : -1;
+			bat_msg.charge_state = get_charge_state(battery_status_multi_pack.warning[multi_pack_index]);
+
+			// check if temperature valid
+			if (battery_status_multi_pack.connected[multi_pack_index] && PX4_ISFINITE(battery_status_multi_pack.temperature[multi_pack_index]))
+			{
+				bat_msg.temperature = battery_status_multi_pack.temperature[multi_pack_index] * 100.0f;
+			}
+			else
+			{
+				bat_msg.temperature = INT16_MAX;
+			}
+
+			// battery voltage information
+			for (int cell = 0; cell < MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN; cell++)
+			{
+				if (battery_status_multi_pack.connected[multi_pack_index]
+				    && (cell < battery_status_multi_pack.cell_count[multi_pack_index]))
+				{
+					bat_msg.voltages[cell] = (battery_status_multi_pack.voltage_v[multi_pack_index] / battery_status_multi_pack.cell_count[multi_pack_index]) * 1000.0f;
+
+				} else {
+					bat_msg.voltages[cell] = UINT16_MAX;
+				}
+			}
+
+			mavlink_msg_battery_status_send_struct(_mavlink->get_channel(), &bat_msg);
+
+			// advance criteria
+			message_space_available--;
+			multi_pack_index++;
+		}
+
+		// sanitize index before exit, index never >= battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT
+		multi_pack_index = multi_pack_index % battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT;
+
+		return;
+	}
+
+protected:
+	explicit MavlinkStreamBatteryStatus(Mavlink *mavlink) : MavlinkStream(mavlink)
+	{
+	}
+
+	bool send(const hrt_abstime t) override
+	{
+		uint8_t message_space_available = MAX_BATTERY_STATUS_MESSAGE_PER_CALL;
+
+		if(multi_pack_index == 0)
+		{
+			send_from_battery_status(message_space_available);
+		}
+
+		send_from_battery_status_multi_pack(message_space_available);
+
+		return true;
 	}
 };
 
