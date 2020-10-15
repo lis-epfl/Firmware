@@ -562,9 +562,8 @@ private:
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _cpuload_sub{ORB_ID(cpuload)};
 	uORB::Subscription _battery_status_multi_pack_sub{ORB_ID(battery_status_multi_pack)};
-	// uORB::Subscription _battery_status_sub[ORB_MULTI_MAX_INSTANCES] {
-	// 	{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}, {ORB_ID(battery_status), 2}, {ORB_ID(battery_status), 3}
-	// };
+	// Reduce the number of standard battery topics to 2 to prevent stability issue.
+	uORB::Subscription _battery_status_sub[2] {{ORB_ID(battery_status), 0}, {ORB_ID(battery_status), 1}};
 
 	/* do not allow top copying this class */
 	MavlinkStreamSysStatus(MavlinkStreamSysStatus &) = delete;
@@ -577,26 +576,24 @@ private:
 		int16_t lowest_pack_current_cA = -1;		//MUST BE THE SAME PACK!
 		int8_t lowest_pack_remaining_pct = -1;		//////
 
-		// Stability issue: caused system to crash
-
 		// Check for topic update
-		// battery_status_s battery_status[ORB_MULTI_MAX_INSTANCES] {};
-		// for (int i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
-		// {
-		// 	if (_battery_status_sub[i].updated())
-		// 	{
-		// 		_battery_status_sub[i].copy(&battery_status[i]);
+		battery_status_s battery_status[2] {};
+		for (int i = 0; i < 2; i++)
+		{
+			if (_battery_status_sub[i].updated())
+			{
+				_battery_status_sub[i].copy(&battery_status[i]);
 
-		// 		// Find the pack with lowest remaining percentage
-		// 		// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
-		// 		if (battery_status[i].connected && (ceilf(battery_status[i].remaining * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
-		// 		{
-		// 			lowest_pack_voltage_mV = battery_status[i].voltage_filtered_v * 1000.0f;;
-		// 			lowest_pack_current_cA = battery_status[i].current_filtered_a * 100.0f;;
-		// 			lowest_pack_remaining_pct = ceilf(battery_status[i].remaining * 100.0f);
-		// 		}
-		// 	}
-		// }
+				// Find the pack with lowest remaining percentage
+				// lowest_pack_remaining_pct must be casted to uint8. So, it will be 255.
+				if (battery_status[i].connected && (ceilf(battery_status[i].remaining * 100.0f) < (uint8_t)lowest_pack_remaining_pct))
+				{
+					lowest_pack_voltage_mV = battery_status[i].voltage_filtered_v * 1000.0f;;
+					lowest_pack_current_cA = battery_status[i].current_filtered_a * 100.0f;;
+					lowest_pack_remaining_pct = ceilf(battery_status[i].remaining * 100.0f);
+				}
+			}
+		}
 
 		battery_status_multi_pack_s batteries;
 		if (_battery_status_multi_pack_sub.update(&batteries))
