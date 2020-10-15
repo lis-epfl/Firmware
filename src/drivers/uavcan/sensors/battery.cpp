@@ -75,28 +75,6 @@ UavcanBatteryBridge::init()
 void
 UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::equipment::power::BatteryInfo> &msg)
 {
-	/*
-	// Test Code Injection
-	batteries.timestamp = hrt_absolute_time();
-	for (int array_index = 0; array_index < MAX_BATTERIES_INSTANCE; array_index++)
-	{
-		batteries.id[array_index] = array_index + 2;
-		batteries.voltage_v[array_index] = array_index + 10;
-		batteries.voltage_filtered_v[array_index] = array_index + 10;
-		batteries.current_a[array_index] = array_index;
-		batteries.current_filtered_a[array_index] = array_index;
-		batteries.discharged_mah[array_index] = array_index + 10;
-		batteries.remaining[array_index] = array_index + 10;
-		batteries.temperature[array_index] = 35;
-		batteries.cell_count[array_index] = 3;
-		batteries.connected[array_index] = true;
-		batteries.source[array_index] = 1;
-		batteries.capacity[array_index] = 1000;
-		batteries.serial_number[array_index] = 1;
-		batteries.warning[array_index] = 1;
-		batteries_last_update[array_index] = batteries.timestamp;
-	}
-	*/
 	// Find or assign the index of this node ID.
 	uint8_t nodeID = msg.getSrcNodeID().get();
 	uint8_t array_index = 255;
@@ -155,9 +133,6 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 
 	// battery.is_powering_off = msg.;
 
-	determineWarning(batteries.remaining[array_index]);
-	batteries.warning[array_index] = _warning;
-
 	batteries_last_update[array_index] = batteries.timestamp;
 
 	publish(1, &batteries);
@@ -183,19 +158,4 @@ UavcanBatteryBridge::sumDischarged(hrt_abstime timestamp, float current_a)
 	}
 
 	_last_timestamp = timestamp;
-}
-
-void
-UavcanBatteryBridge::determineWarning(float remaining)
-{
-	// propagate warning state only if the state is higher, otherwise remain in current warning state
-	if (remaining < _param_bat_emergen_thr.get() || (_warning == battery_status_multi_pack_s::BATTERY_WARNING_EMERGENCY)) {
-		_warning = battery_status_multi_pack_s::BATTERY_WARNING_EMERGENCY;
-
-	} else if (remaining < _param_bat_crit_thr.get() || (_warning == battery_status_multi_pack_s::BATTERY_WARNING_CRITICAL)) {
-		_warning = battery_status_multi_pack_s::BATTERY_WARNING_CRITICAL;
-
-	} else if (remaining < _param_bat_low_thr.get() || (_warning == battery_status_multi_pack_s::BATTERY_WARNING_LOW)) {
-		_warning = battery_status_multi_pack_s::BATTERY_WARNING_LOW;
-	}
 }
