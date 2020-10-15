@@ -39,5 +39,3 @@ uint8[16] critical_voltage		# voltage to trigger critical battery voltage failsa
 
 uint8[16] id                		# ID number of a battery. Should be unique and consistent for the lifetime of a vehicle. 1-indexed.
 bool[16] is_powering_off		# Power off event imminent indication, false if unknown
-
-uint8[16] warning    			# current battery warning
