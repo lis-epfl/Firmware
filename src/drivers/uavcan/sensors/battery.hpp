@@ -46,6 +46,15 @@
 #define BATTERY_UPDATE_TIMEOUT_NS 5000000000
 #define MAX_BATTERIES_INSTANCE 16
 
+// For model_instance_id decoding.
+#define MDL_ID_TAKE_4_BITS 28
+#define MDL_ID_TAKE_8_BITS 24
+#define MDL_ID_TAKE_12_BITS 20
+#define MDL_ID_CELL_COUNT_FROM_MSB_BIT 28
+#define MDL_ID_CRIT_VOLT_FROM_MSB_BIT 20
+#define MDL_ID_LOW_VOLT_FROM_MSB_BIT 12
+#define MDL_ID_SERIAL_FROM_MSB_BIT 0
+
 class UavcanBatteryBridge : public UavcanCDevSensorBridgeBase, public ModuleParams
 {
 public:
