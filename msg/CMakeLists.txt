@@ -41,6 +41,7 @@ set(msg_files
 	adc_report.msg
 	airspeed.msg
 	airspeed_validated.msg
+	battery_failsafe.msg # custom topic
 	battery_status.msg
 	battery_status_multi_pack.msg  # custom topic
 	camera_capture.msg
