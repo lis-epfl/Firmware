@@ -129,6 +129,8 @@ BatteryFailsafe *BatteryFailsafe::instantiate(int argc, char *argv[])
 BatteryFailsafe::BatteryFailsafe(int example_param, bool example_flag)
 	: ModuleParams(nullptr)
 {
+	// Initialize variable
+	failsafe_status.warning = battery_failsafe_s::BATTERY_WARNING_NONE;
 }
 
 void BatteryFailsafe::run()
@@ -171,11 +173,13 @@ void BatteryFailsafe::run()
 		} else if (fds[0].revents & POLLIN || fds[1].revents & POLLIN || fds[2].revents & POLLIN || fds[3].revents & POLLIN) {
 
 			// Read from battery topics
+
 			battery_status_s battery;
 			orb_copy(ORB_ID(battery_status), _battery_subs[0], &battery);
+
 			// TODO: do something with the data...
 
-			publishUpdate = true;
+			// publishUpdate = true;
 
 		} else if (fds[4].revents & POLLIN) {
 
@@ -191,26 +195,21 @@ void BatteryFailsafe::run()
 					continue;
 				}
 
-				currentWorstWarning = determineWarning(batteries.voltage_v[i],
-								       batteries.low_voltage[i],
-								       batteries.critical_voltage[i]);
+				failsafe_status.warning = determineWarning(failsafe_status.warning,
+									   batteries.voltage_v[i],
+								       	   batteries.low_voltage[i],
+								       	   batteries.critical_voltage[i]);
 			}
 
 			publishUpdate = true;
 
 		}
 
-
-		battery_failsafe_s failsafe_status;
-
-		/////////////////////////////////
-		//// Publish the information ////
-		/////////////////////////////////
+		// Publish the information
 		if (publishUpdate)
 		{
 			failsafe_status.run_time_to_empty = 0;
 			failsafe_status.voltage_v = 12.4;
-			failsafe_status.warning = currentWorstWarning;
 			// Publish
 			_battery_failsafe_pub.publish(failsafe_status);
 		}
@@ -268,13 +267,13 @@ int battery_failsafe_main(int argc, char *argv[])
 	return BatteryFailsafe::main(argc, argv);
 }
 
-uint8_t BatteryFailsafe::determineWarning(float voltage, uint8_t critical_cV, uint8_t emergency_cV)
+uint8_t BatteryFailsafe::determineWarning(uint8_t currentWarning, float voltage, uint8_t critical_cV, uint8_t emergency_cV)
 {
 	// propagate warning state only if the state is higher, otherwise remain in current warning state
-	if (voltage < (emergency_cV / 10.0f) || (currentWorstWarning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
+	if (voltage < (emergency_cV / 10.0f) || (currentWarning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
 		return battery_failsafe_s::BATTERY_WARNING_EMERGENCY;
 
-	} else if (voltage < (critical_cV / 10.0f) || (currentWorstWarning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
+	} else if (voltage < (critical_cV / 10.0f) || (currentWarning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
 		return battery_failsafe_s::BATTERY_WARNING_CRITICAL;
 
 	} else {

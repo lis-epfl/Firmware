@@ -82,9 +82,9 @@ private:
 	 */
 	void parameters_update(bool force = false);
 
-	uint8_t determineWarning(float voltage, uint8_t critical_cV, uint8_t emergency_cV);
+	uint8_t determineWarning(uint8_t currentWarning, float voltage, uint8_t critical_cV, uint8_t emergency_cV);
 
-	uint8_t currentWorstWarning = battery_failsafe_s::BATTERY_WARNING_NONE;
+	battery_failsafe_s failsafe_status;
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::BFS_ENABLED>)bfs_enabled)
