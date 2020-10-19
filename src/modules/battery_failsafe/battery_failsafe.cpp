@@ -131,6 +131,9 @@ BatteryFailsafe::BatteryFailsafe(int example_param, bool example_flag)
 {
 	// Initialize variable
 	failsafe_status.warning = battery_failsafe_s::BATTERY_WARNING_NONE;
+	failsafe_status.source_id = 0;
+	failsafe_status.voltage_v = 0.0f;
+	failsafe_status.run_time_to_empty = 0;
 }
 
 void BatteryFailsafe::run()
@@ -189,16 +192,36 @@ void BatteryFailsafe::run()
 
 			for (unsigned i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 			{
-				// If battery not connected, skip
+				// Check if the power module is disconnected
+				if (!batteries.connected[i] && last_connected_state[i])
+				{
+					// Send power module disconnected warning
+					mavlink_log_info(&_mavlink_log_pub, "Power module ID:%d disconnected.", batteries.id[i]);
+				}
+
+				// Update connection state
+				last_connected_state[i] = batteries.connected[i];
+
+				// If power module not connected, skip
 				if (!batteries.connected[i])
 				{
 					continue;
 				}
 
-				failsafe_status.warning = determineWarning(failsafe_status.warning,
-									   batteries.voltage_v[i],
-								       	   batteries.low_voltage[i],
-								       	   batteries.critical_voltage[i]);
+				// Determine the warning level for this battery.
+				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
+									   	 batteries.voltage_v[i],
+								       	   	 batteries.low_voltage[i],
+								       	   	 batteries.critical_voltage[i]);
+
+				// If the new warning is worst that the previous, update the warning.
+				if (warningForThisBattery > failsafe_status.warning)
+				{
+					failsafe_status.warning = warningForThisBattery;
+					failsafe_status.source_id = batteries.id[i];
+					failsafe_status.voltage_v = batteries.voltage_v[i];
+					failsafe_status.run_time_to_empty = batteries.run_time_to_empty[i];
+				}
 			}
 
 			publishUpdate = true;
@@ -208,9 +231,7 @@ void BatteryFailsafe::run()
 		// Publish the information
 		if (publishUpdate)
 		{
-			failsafe_status.run_time_to_empty = 0;
-			failsafe_status.voltage_v = 12.4;
-			// Publish
+			failsafe_status.timestamp = hrt_absolute_time();
 			_battery_failsafe_pub.publish(failsafe_status);
 		}
 

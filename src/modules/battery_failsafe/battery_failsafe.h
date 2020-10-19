@@ -35,6 +35,7 @@
 
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
+#include <systemlib/mavlink_log.h>
 #include <mathlib/mathlib.h>
 #include <perf/perf_counter.h>
 #include <uORB/Subscription.hpp>
@@ -86,6 +87,8 @@ private:
 
 	battery_failsafe_s failsafe_status;
 
+	bool last_connected_state[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {false};
+
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::BFS_ENABLED>)bfs_enabled)
 
@@ -94,6 +97,7 @@ private:
 
 	// Publisher
 	uORB::Publication<battery_failsafe_s>	_battery_failsafe_pub{ORB_ID(battery_failsafe)};
+	orb_advert_t _mavlink_log_pub{nullptr};
 
 };
 
