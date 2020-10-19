@@ -90,7 +90,11 @@ private:
 	bool last_connected_state[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {false};
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::BFS_ENABLED>)bfs_enabled)
+		(ParamInt<px4::params::BFS_ENABLED>) _bfs_enabled,
+		(ParamFloat<px4::params::BAT_LOW_THR>) _batt_low_thr,
+		(ParamFloat<px4::params::BAT_CRIT_THR>) _batt_crit_thr,
+		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _batt_emergen_thr
+	)
 
 	// Subscriber
 	uORB::Subscription	_parameter_update_sub{ORB_ID(parameter_update)};

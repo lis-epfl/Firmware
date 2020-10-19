@@ -175,14 +175,36 @@ void BatteryFailsafe::run()
 
 		} else if (fds[0].revents & POLLIN || fds[1].revents & POLLIN || fds[2].revents & POLLIN || fds[3].revents & POLLIN) {
 
-			// Read from battery topics
+			for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
+			{
+				if (!(fds[i].revents & POLLIN))
+				{
+					// No update on this instance
+					continue;
+				}
 
-			battery_status_s battery;
-			orb_copy(ORB_ID(battery_status), _battery_subs[0], &battery);
+				// Read from battery topics
+				battery_status_s battery;
+				orb_copy(ORB_ID(battery_status), _battery_subs[i], &battery);
 
-			// TODO: do something with the data...
+				// Determine the warning level for this battery.
+				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
+									   	 battery.voltage_filtered_v,
+								       	   	 (uint8_t)(_batt_crit_thr.get() * 10.0f),
+								       	   	 (uint8_t)(_batt_emergen_thr.get() * 10.0f));
 
-			// publishUpdate = true;
+				// If the new warning is worst that the previous, update the warning.
+				if (warningForThisBattery > failsafe_status.warning)
+				{
+					failsafe_status.warning = warningForThisBattery;
+					failsafe_status.source_id = battery.id;
+					failsafe_status.voltage_v = battery.voltage_filtered_v;
+					failsafe_status.run_time_to_empty = battery.run_time_to_empty;
+				}
+
+			}
+
+			publishUpdate = true;
 
 		} else if (fds[4].revents & POLLIN) {
 
