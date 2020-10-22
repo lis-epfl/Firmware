@@ -95,6 +95,7 @@ px4_add_board(
 		mixer
 		motor_ramp
 		motor_test
+		motor_custom_test
 		#mtd
 		#nshterm
 		param
