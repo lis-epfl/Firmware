@@ -1773,7 +1773,7 @@ Commander::run()
 		/* start geofence result check */
 		_geofence_result_sub.update(&_geofence_result);
 
-		const bool in_low_battery_failsafe = _battery_warning > battery_status_s::BATTERY_WARNING_LOW;
+		const bool in_low_battery_failsafe = _battery_warning > battery_failsafe_s::BATTERY_WARNING_LOW;
 
 		// Geofence actions
 		const bool geofence_action_enabled = _geofence_result.geofence_action != geofence_result_s::GF_ACTION_NONE;
@@ -2446,12 +2446,12 @@ Commander::run()
 
 		} else if (!status_flags.usb_connected &&
 			   (status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
-			   (_battery_warning == battery_status_s::BATTERY_WARNING_CRITICAL)) {
+			   (_battery_warning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
 			/* play tune on battery critical */
 			set_tune(TONE_BATTERY_WARNING_FAST_TUNE);
 
 		} else if ((status.hil_state != vehicle_status_s::HIL_STATE_ON) &&
-			   (_battery_warning == battery_status_s::BATTERY_WARNING_LOW)) {
+			   (_battery_warning == battery_failsafe_s::BATTERY_WARNING_LOW)) {
 			/* play tune on battery warning */
 			set_tune(TONE_BATTERY_WARNING_SLOW_TUNE);
 
@@ -2615,10 +2615,10 @@ Commander::control_status_leds(vehicle_status_s *status_local, const actuator_ar
 			if (status.failsafe) {
 				led_color = led_control_s::COLOR_PURPLE;
 
-			} else if (battery_warning == battery_status_s::BATTERY_WARNING_LOW) {
+			} else if (battery_warning == battery_failsafe_s::BATTERY_WARNING_LOW) {
 				led_color = led_control_s::COLOR_AMBER;
 
-			} else if (battery_warning == battery_status_s::BATTERY_WARNING_CRITICAL) {
+			} else if (battery_warning == battery_failsafe_s::BATTERY_WARNING_CRITICAL) {
 				led_color = led_control_s::COLOR_RED;
 
 			} else {
@@ -3942,52 +3942,22 @@ void Commander::avoidance_check()
 
 void Commander::battery_status_check()
 {
-	bool battery_sub_updated = false;
-
-	battery_status_s batteries[ORB_MULTI_MAX_INSTANCES];
-	size_t num_connected_batteries = 0;
-
-	for (size_t i = 0; i < sizeof(_battery_subs) / sizeof(_battery_subs[0]); i++) {
-		// We need to update the status flag if ANY battery is updated, because the system source might have
-		// changed, or might be nothing (if there is no battery connected)
-		battery_sub_updated |= _battery_subs[i].updated();
-
-		if (_battery_subs[i].copy(&batteries[num_connected_batteries])) {
-			if (batteries[num_connected_batteries].connected) {
-				num_connected_batteries++;
-			}
-		}
-	}
-
-	if (!battery_sub_updated) {
-		// Nothing has changed since the last time this function was called, so nothing needs to be done now.
+	// check if there is an update from the topic, exit if nothing
+	if (!_battery_failsafe_sub.updated()) {
 		return;
 	}
 
-	// There are possibly multiple batteries, and we can't know which ones serve which purpose. So the safest
-	// option is to check if ANY of them have a warning, and specifically find which one has the most
-	// urgent warning.
-	uint8_t worst_warning = battery_status_s::BATTERY_WARNING_NONE;
-	// To make sure that all connected batteries are being regularly reported, we check which one has the
-	// oldest timestamp.
-	hrt_abstime oldest_update = hrt_absolute_time();
+	// copy the topic data
+	battery_failsafe_s battery_failsafe_data;
+	_battery_failsafe_sub.copy(&battery_failsafe_data);
 
-	_battery_current = 0.0f;
+	// assign worst warning as it is selected from the battery_failsafe module
+	uint8_t worst_warning = battery_failsafe_data.warning;
 
-	// Only iterate over connected batteries. We don't care if a disconnected battery is not regularly publishing.
-	for (size_t i = 0; i < num_connected_batteries; i++) {
-		if (batteries[i].warning > worst_warning) {
-			worst_warning = batteries[i].warning;
-		}
+	// set battery current for motor fail check
+	_battery_current = battery_failsafe_data.total_current_a;
 
-		if (hrt_elapsed_time(&batteries[i].timestamp) > hrt_elapsed_time(&oldest_update)) {
-			oldest_update = batteries[i].timestamp;
-		}
-
-		// Sum up current from all batteries.
-		_battery_current += batteries[i].current_filtered_a;
-	}
-
+	// failsafe procedure
 	bool battery_warning_level_increased_while_armed = false;
 	bool update_internal_battery_state = false;
 
@@ -4007,13 +3977,8 @@ void Commander::battery_status_check()
 		_battery_warning = worst_warning;
 	}
 
-	status_flags.condition_battery_healthy =
-		// All connected batteries are regularly being published
-		(hrt_elapsed_time(&oldest_update) < 5_s)
-		// There is at least one connected battery (in any slot)
-		&& (num_connected_batteries > 0)
-		// No currently-connected batteries have any warning
-		&& (_battery_warning == battery_status_s::BATTERY_WARNING_NONE);
+	// No currently-connected batteries have any warning
+	status_flags.condition_battery_healthy = (_battery_warning == battery_failsafe_s::BATTERY_WARNING_NONE);
 
 	// execute battery failsafe if the state has gotten worse while we are armed
 	if (battery_warning_level_increased_while_armed) {
@@ -4024,7 +3989,7 @@ void Commander::battery_status_check()
 	// Handle shutdown request from emergency battery action
 	if (update_internal_battery_state) {
 
-		if (_battery_warning == battery_status_s::BATTERY_WARNING_EMERGENCY) {
+		if (_battery_warning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY) {
 #if defined(CONFIG_BOARDCTL_POWEROFF)
 
 			if (shutdown_if_allowed() && (px4_shutdown_request(400_ms) == 0)) {

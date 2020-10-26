@@ -58,7 +58,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/airspeed.h>
-#include <uORB/topics/battery_status.h>
+#include <uORB/topics/battery_failsafe.h>
 #include <uORB/topics/cpuload.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/esc_status.h>
@@ -328,7 +328,7 @@ private:
 
 	int		_last_esc_online_flags{-1};
 
-	uint8_t		_battery_warning{battery_status_s::BATTERY_WARNING_NONE};
+	uint8_t		_battery_warning{battery_failsafe_s::BATTERY_WARNING_NONE};
 	float		_battery_current{0.0f};
 
 	Hysteresis	_auto_disarm_landed{false};
@@ -384,18 +384,19 @@ private:
 
 	// Subscriptions
 	uORB::Subscription					_actuator_controls_sub{ORB_ID_VEHICLE_ATTITUDE_CONTROLS};
-#if BOARD_NUMBER_BRICKS > 1
-	uORB::Subscription					_battery_subs[ORB_MULTI_MAX_INSTANCES] {
-		uORB::Subscription(ORB_ID(battery_status), 0),
-		uORB::Subscription(ORB_ID(battery_status), 1),
-		uORB::Subscription(ORB_ID(battery_status), 2),
-		uORB::Subscription(ORB_ID(battery_status), 3),
-	};
-#else
-	uORB::Subscription					_battery_subs[1] {
-		uORB::Subscription(ORB_ID(battery_status), 0)
-	};
-#endif
+// #if BOARD_NUMBER_BRICKS > 1
+// 	uORB::Subscription					_battery_subs[ORB_MULTI_MAX_INSTANCES] {
+// 		uORB::Subscription(ORB_ID(battery_status), 0),
+// 		uORB::Subscription(ORB_ID(battery_status), 1),
+// 		uORB::Subscription(ORB_ID(battery_status), 2),
+// 		uORB::Subscription(ORB_ID(battery_status), 3),
+// 	};
+// #else
+// 	uORB::Subscription					_battery_subs[1] {
+// 		uORB::Subscription(ORB_ID(battery_status), 0)
+// 	};
+// #endif
+	uORB::Subscription					_battery_failsafe_sub {ORB_ID(battery_failsafe)};
 	uORB::Subscription					_cmd_sub {ORB_ID(vehicle_command)};
 	uORB::Subscription					_cpuload_sub{ORB_ID(cpuload)};
 	uORB::Subscription					_sub_distance_sensor[ORB_MULTI_MAX_INSTANCES] {{ORB_ID(distance_sensor), 0}, {ORB_ID(distance_sensor), 1}, {ORB_ID(distance_sensor), 2}, {ORB_ID(distance_sensor), 3}}; /**< distance data received from onboard rangefinders */

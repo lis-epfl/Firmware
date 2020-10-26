@@ -48,7 +48,7 @@
 
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_status.h>
-#include <uORB/topics/battery_status.h>
+#include <uORB/topics/battery_failsafe.h>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/safety.h>
 #include <uORB/topics/commander_state.h>
