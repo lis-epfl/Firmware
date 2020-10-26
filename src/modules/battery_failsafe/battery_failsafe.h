@@ -48,6 +48,8 @@
 
 extern "C" __EXPORT int battery_failsafe_main(int argc, char *argv[]);
 
+#define VOLTAGE_DROP_DELAY_US 5000000
+
 
 class BatteryFailsafe : public ModuleBase<BatteryFailsafe>, public ModuleParams
 {
@@ -83,11 +85,17 @@ private:
 	 */
 	void parameters_update(bool force = false);
 
-	uint8_t determineWarning(uint8_t currentWarning, float voltage, uint8_t critical_cV, uint8_t emergency_cV);
+	uint8_t determineWarning(uint8_t currentWarning, bool should_warn_critical, bool should_warn_emergency);
 
 	battery_failsafe_s failsafe_status;
 
 	bool last_connected_state[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {false};
+
+	hrt_abstime last_time_above_critical_threshold[ORB_MULTI_MAX_INSTANCES];
+	hrt_abstime last_time_above_emergency_threshold[ORB_MULTI_MAX_INSTANCES];
+
+	hrt_abstime last_time_above_critical_threshold_multi_pack[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT];
+	hrt_abstime last_time_above_emergency_threshold_multi_pack[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT];
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::BFS_ENABLED>) _bfs_enabled,

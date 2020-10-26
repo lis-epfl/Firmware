@@ -37,6 +37,8 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/posix.h>
 
+#define VOLTAGE_DROP_CHECK(now, last_time) (abs(now - last_time) > VOLTAGE_DROP_DELAY_US)
+
 int BatteryFailsafe::print_status()
 {
 	PX4_INFO("Running");
@@ -187,11 +189,23 @@ void BatteryFailsafe::run()
 				battery_status_s battery;
 				orb_copy(ORB_ID(battery_status), _battery_subs[i], &battery);
 
+				hrt_abstime now = hrt_absolute_time();
+
+				// save time to delay for momentary voltage drop
+				if (battery.voltage_filtered_v > _batt_crit_thr.get())
+				{
+					last_time_above_critical_threshold[i] = now;
+				}
+
+				if (battery.voltage_filtered_v > _batt_emergen_thr.get())
+				{
+					last_time_above_emergency_threshold[i] = now;
+				}
+
 				// Determine the warning level for this battery.
 				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
-									   	 battery.voltage_filtered_v,
-								       	   	 (uint8_t)(_batt_crit_thr.get() * 10.0f),
-								       	   	 (uint8_t)(_batt_emergen_thr.get() * 10.0f));
+										 VOLTAGE_DROP_CHECK(now, last_time_above_critical_threshold[i]),
+										 VOLTAGE_DROP_CHECK(now, last_time_above_emergency_threshold[i]));
 
 				// If the new warning is worst that the previous, update the warning.
 				if (warningForThisBattery > failsafe_status.warning)
@@ -214,6 +228,8 @@ void BatteryFailsafe::run()
 
 			for (unsigned i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 			{
+				hrt_abstime now = hrt_absolute_time();
+
 				// Check if the power module is disconnected
 				if (!batteries.connected[i] && last_connected_state[i])
 				{
@@ -230,11 +246,21 @@ void BatteryFailsafe::run()
 					continue;
 				}
 
+				// save time to delay for momentary voltage drop
+				if (batteries.voltage_v[i] > batteries.low_voltage[i] / 10.0f)
+				{
+					last_time_above_critical_threshold_multi_pack[i] = now;
+				}
+
+				if (batteries.voltage_v[i] > batteries.critical_voltage[i] / 10.0f)
+				{
+					last_time_above_emergency_threshold_multi_pack[i] = now;
+				}
+
 				// Determine the warning level for this battery.
 				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
-									   	 batteries.voltage_v[i],
-								       	   	 batteries.low_voltage[i],
-								       	   	 batteries.critical_voltage[i]);
+										 VOLTAGE_DROP_CHECK(now, last_time_above_critical_threshold_multi_pack[i]),
+										 VOLTAGE_DROP_CHECK(now, last_time_above_emergency_threshold_multi_pack[i]));
 
 				// If the new warning is worst that the previous, update the warning.
 				if (warningForThisBattery > failsafe_status.warning)
@@ -310,13 +336,13 @@ int battery_failsafe_main(int argc, char *argv[])
 	return BatteryFailsafe::main(argc, argv);
 }
 
-uint8_t BatteryFailsafe::determineWarning(uint8_t currentWarning, float voltage, uint8_t critical_cV, uint8_t emergency_cV)
+uint8_t BatteryFailsafe::determineWarning(uint8_t currentWarning, bool should_warn_critical, bool should_warn_emergency)
 {
 	// propagate warning state only if the state is higher, otherwise remain in current warning state
-	if (voltage < (emergency_cV / 10.0f) || (currentWarning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
+	if (should_warn_emergency || (currentWarning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
 		return battery_failsafe_s::BATTERY_WARNING_EMERGENCY;
 
-	} else if (voltage < (critical_cV / 10.0f) || (currentWarning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
+	} else if (should_warn_critical || (currentWarning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
 		return battery_failsafe_s::BATTERY_WARNING_CRITICAL;
 
 	} else {
