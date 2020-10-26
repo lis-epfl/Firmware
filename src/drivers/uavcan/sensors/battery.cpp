@@ -111,8 +111,8 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 
 	batteries.cell_count[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_CELL_COUNT_FROM_MSB_BIT) >> MDL_ID_TAKE_4_BITS);
 	batteries.serial_number[array_index] = (uint16_t)(((uint32_t)msg.model_instance_id << MDL_ID_SERIAL_FROM_MSB_BIT) >> MDL_ID_TAKE_12_BITS);
-	batteries.low_voltage[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_LOW_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS);
-	batteries.critical_voltage[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_CRIT_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS);
+	batteries.low_voltage_v[array_index] = (float)(((uint32_t)msg.model_instance_id << MDL_ID_LOW_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS) / 10.0f;
+	batteries.critical_voltage_v[array_index] = (float)(((uint32_t)msg.model_instance_id << MDL_ID_CRIT_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS) / 10.0f;
 
 	batteries.voltage_v[array_index] = msg.voltage;
 	batteries.current_a[array_index] = msg.current;

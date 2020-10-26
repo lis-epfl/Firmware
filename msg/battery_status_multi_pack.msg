@@ -33,8 +33,8 @@ uint16[16] average_time_to_empty   	# predicted remaining battery capacity based
 uint16[16] serial_number       		# serial number of the battery pack
 uint16[16] state_of_health		# state of health. FullChargeCapacity/DesignCapacity.
 uint16[16] max_error 			# max error, expected margin of error in % in the state-of-charge calculation with a range of 1 to 100%
-uint8[16] low_voltage			# voltage to trigger low battery voltage failsafe
-uint8[16] critical_voltage		# voltage to trigger critical battery voltage failsafe
+float32[16] low_voltage_v		# voltage to trigger low battery voltage failsafe
+float32[16] critical_voltage_v		# voltage to trigger critical battery voltage failsafe
 
 
 uint8[16] id                		# ID number of a battery. Should be unique and consistent for the lifetime of a vehicle. 1-indexed.

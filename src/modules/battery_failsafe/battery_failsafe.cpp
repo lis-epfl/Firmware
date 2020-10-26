@@ -247,12 +247,12 @@ void BatteryFailsafe::run()
 				}
 
 				// save time to delay for momentary voltage drop
-				if (batteries.voltage_v[i] > batteries.low_voltage[i] / 10.0f)
+				if (batteries.voltage_v[i] > batteries.low_voltage_v[i])
 				{
 					last_time_above_critical_threshold_multi_pack[i] = now;
 				}
 
-				if (batteries.voltage_v[i] > batteries.critical_voltage[i] / 10.0f)
+				if (batteries.voltage_v[i] > batteries.critical_voltage_v[i])
 				{
 					last_time_above_emergency_threshold_multi_pack[i] = now;
 				}
