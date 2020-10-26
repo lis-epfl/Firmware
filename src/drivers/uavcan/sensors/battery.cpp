@@ -64,7 +64,7 @@ UavcanBatteryBridge::init()
 	}
 
 	// Initialize batteries ID by setting all instance ID to 255
-	for (int i = 0; i < MAX_BATTERIES_INSTANCE; i++)
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 	{
 		batteries.id[i] = 255;
 	}
@@ -79,7 +79,7 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	uint8_t nodeID = msg.getSrcNodeID().get();
 	uint8_t array_index = 255;
 
-	for (int i = 0; i < MAX_BATTERIES_INSTANCE; i++)
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 	{
 		// There are no more node further down this array. Assign i index to this node.
 		if (batteries.id[i] == 255)
@@ -103,8 +103,8 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	}
 
 	// Transfer CAN message to uORB topic.
-
-	batteries.timestamp = hrt_absolute_time();
+	hrt_abstime now = hrt_absolute_time();
+	batteries.timestamp = now;
 
 	// decode model instance id
 	// TODO: Should we add a check to see if we need to decode every round?
@@ -118,18 +118,24 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	batteries.current_a[array_index] = msg.current;
 	// battery.average_current_a = msg.;
 
-	sumDischarged(batteries.timestamp, batteries.current_a[array_index]);
+	sumDischarged(now, batteries.current_a[array_index]);
 	batteries.discharged_mah[array_index] = _discharged_mah;
 
 	batteries.remaining[array_index] = msg.state_of_charge_pct / 100.0f; // between 0 and 1
 
 	batteries.temperature[array_index] = msg.temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS; // Kelvin to Celcius
 
-	batteries.connected[array_index] = hrt_absolute_time() - batteries_last_update[array_index] < BATTERY_UPDATE_TIMEOUT_NS;
 	batteries.source[array_index] = msg.status_flags & uavcan::equipment::power::BatteryInfo::STATUS_FLAG_IN_USE;
 	batteries.capacity[array_index] = msg.full_charge_capacity_wh;
 
-	batteries_last_update[array_index] = batteries.timestamp;
+	batteries_last_update[array_index] = now;
+
+	// Update monitor connection status
+	// TODO: This will only work if at least 1 monitor is connected.
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+	{
+		batteries.connected[i] = now - batteries_last_update[i] < BATTERY_UPDATE_TIMEOUT_US;
+	}
 
 	publish(1, &batteries);
 }

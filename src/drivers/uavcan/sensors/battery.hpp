@@ -43,8 +43,7 @@
 #include <drivers/drv_hrt.h>
 #include <px4_platform_common/module_params.h>
 
-#define BATTERY_UPDATE_TIMEOUT_NS 5000000000
-#define MAX_BATTERIES_INSTANCE 16
+#define BATTERY_UPDATE_TIMEOUT_US 5000000
 
 // For model_instance_id decoding.
 #define MDL_ID_TAKE_4_BITS 28
@@ -84,5 +83,5 @@ private:
 	hrt_abstime _last_timestamp;
 
 	battery_status_multi_pack_s batteries{};
-	uint64_t batteries_last_update[MAX_BATTERIES_INSTANCE] = {0};
+	hrt_abstime batteries_last_update[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {0};
 };
