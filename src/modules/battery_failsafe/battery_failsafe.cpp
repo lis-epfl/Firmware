@@ -177,6 +177,9 @@ void BatteryFailsafe::run()
 
 		} else if (fds[0].revents & POLLIN || fds[1].revents & POLLIN || fds[2].revents & POLLIN || fds[3].revents & POLLIN) {
 
+			// clear total current
+			total_current = 0.0f;
+
 			for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
 			{
 				if (!(fds[i].revents & POLLIN))
@@ -190,6 +193,9 @@ void BatteryFailsafe::run()
 				orb_copy(ORB_ID(battery_status), _battery_subs[i], &battery);
 
 				hrt_abstime now = hrt_absolute_time();
+
+				// sum current from this battery
+				total_current += battery.current_filtered_a;
 
 				// save time to delay for momentary voltage drop
 				if (battery.voltage_filtered_v > _batt_crit_thr.get())
@@ -226,6 +232,9 @@ void BatteryFailsafe::run()
 			battery_status_multi_pack_s batteries;
 			orb_copy(ORB_ID(battery_status_multi_pack), _battery_multi_pack_sub, &batteries);
 
+			// clear total current for muti pack message
+			total_current_multi_pack = 0.0f;
+
 			for (unsigned i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 			{
 				hrt_abstime now = hrt_absolute_time();
@@ -245,6 +254,8 @@ void BatteryFailsafe::run()
 				{
 					continue;
 				}
+
+				total_current_multi_pack += batteries.current_a[i];
 
 				// save time to delay for momentary voltage drop
 				if (batteries.voltage_v[i] > batteries.critical_voltage_v[i])
@@ -280,6 +291,7 @@ void BatteryFailsafe::run()
 		if (publishUpdate)
 		{
 			failsafe_status.timestamp = hrt_absolute_time();
+			failsafe_status.total_current_a = total_current + total_current_multi_pack;
 			_battery_failsafe_pub.publish(failsafe_status);
 		}
 
@@ -309,16 +321,12 @@ int BatteryFailsafe::print_usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-Section that describes the provided module functionality.
-
-This is a template for a module running as a task in the background with start/stop/status functionality.
-
-### Implementation
-Section describing the high-level implementation of this module.
+This module handles battery failsafe status advertisement.
+This module does not take any argument.
 
 ### Examples
 CLI usage example:
-$ battery_failsafe start -f -p 42
+$ battery_failsafe start
 
 )DESCR_STR");
 

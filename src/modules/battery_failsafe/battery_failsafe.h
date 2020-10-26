@@ -97,6 +97,9 @@ private:
 	hrt_abstime last_time_above_critical_threshold_multi_pack[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT];
 	hrt_abstime last_time_above_emergency_threshold_multi_pack[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT];
 
+	float total_current = 0;
+	float total_current_multi_pack = 0;
+
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::BFS_ENABLED>) _bfs_enabled,
 		(ParamFloat<px4::params::BAT_LOW_THR>) _batt_low_thr,
