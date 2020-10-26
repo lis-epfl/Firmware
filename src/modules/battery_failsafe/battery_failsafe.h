@@ -85,7 +85,7 @@ private:
 	 */
 	void parameters_update(bool force = false);
 
-	uint8_t determineWarning(uint8_t currentWarning, bool should_warn_critical, bool should_warn_emergency);
+	uint8_t determine_warning(uint8_t current_warning, bool should_warn_critical, bool should_warn_emergency);
 
 	battery_failsafe_s failsafe_status;
 

@@ -203,7 +203,7 @@ void BatteryFailsafe::run()
 				}
 
 				// Determine the warning level for this battery.
-				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
+				uint8_t warningForThisBattery = determine_warning(failsafe_status.warning,
 										 VOLTAGE_DROP_CHECK(now, last_time_above_critical_threshold[i]),
 										 VOLTAGE_DROP_CHECK(now, last_time_above_emergency_threshold[i]));
 
@@ -258,7 +258,7 @@ void BatteryFailsafe::run()
 				}
 
 				// Determine the warning level for this battery.
-				uint8_t warningForThisBattery = determineWarning(failsafe_status.warning,
+				uint8_t warningForThisBattery = determine_warning(failsafe_status.warning,
 										 VOLTAGE_DROP_CHECK(now, last_time_above_critical_threshold_multi_pack[i]),
 										 VOLTAGE_DROP_CHECK(now, last_time_above_emergency_threshold_multi_pack[i]));
 
@@ -336,13 +336,13 @@ int battery_failsafe_main(int argc, char *argv[])
 	return BatteryFailsafe::main(argc, argv);
 }
 
-uint8_t BatteryFailsafe::determineWarning(uint8_t currentWarning, bool should_warn_critical, bool should_warn_emergency)
+uint8_t BatteryFailsafe::determine_warning(uint8_t current_warning, bool should_warn_critical, bool should_warn_emergency)
 {
 	// propagate warning state only if the state is higher, otherwise remain in current warning state
-	if (should_warn_emergency || (currentWarning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
+	if (should_warn_emergency || (current_warning == battery_failsafe_s::BATTERY_WARNING_EMERGENCY)) {
 		return battery_failsafe_s::BATTERY_WARNING_EMERGENCY;
 
-	} else if (should_warn_critical || (currentWarning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
+	} else if (should_warn_critical || (current_warning == battery_failsafe_s::BATTERY_WARNING_CRITICAL)) {
 		return battery_failsafe_s::BATTERY_WARNING_CRITICAL;
 
 	} else {
