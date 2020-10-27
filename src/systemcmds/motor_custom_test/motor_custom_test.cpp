@@ -261,10 +261,10 @@ int set_out(int fd, int channel, unsigned long max_channels, int pwm)
 
 	for (unsigned i = 0; i < max_channels; i++) {
 		if (channel != -1) {
+			PX4_DEBUG("Setting motor %d to PWM %d", i, (i == (unsigned)channel) ? pwm : 0);
 			ret = ioctl(fd, PWM_SERVO_SET(i), (i == (unsigned)channel) ? pwm : 0);
-			PX4_INFO("Setting motor %d to PWM %d", i, (i == (unsigned)channel) ? pwm : 0);
 		} else {
-			PX4_INFO("[ch = -1] Setting motor %d to PWM %d", i, pwm);
+			PX4_DEBUG("Setting motor %d to PWM %d", i, pwm);
 			ret = ioctl(fd, PWM_SERVO_SET(i), pwm);
 		}
 
@@ -399,7 +399,7 @@ int motor_custom_test_thread_main(int argc, char *argv[])
 
 		switch (test_state) {
 			case TEST_INIT: {
-					PX4_INFO("setting pwm min: %d", _pwm_setpoint);
+					PX4_INFO("Setting pwm min: %d", _pwm_setpoint);
 					set_min_pwm_(fd, max_channels, _pwm_setpoint);
 					test_state = TEST_START;
 					break;
@@ -407,7 +407,7 @@ int motor_custom_test_thread_main(int argc, char *argv[])
 
 			case TEST_START: {
 					if (timer > 3.0f) {
-						PX4_INFO("starting test: %.2f sec", (double)_test_time);
+						PX4_INFO("Starting test: %.2f sec", (double)_test_time);
 						start = hrt_absolute_time();
 						test_state = TEST_RUNNING;
 					}
