@@ -37,12 +37,12 @@
  * @author Leonardo Cencetti <cencetti.leonardo@gmail.com>
  */
 
-#include <px4_config.h>
-#include <px4_defines.h>
-#include <px4_module.h>
-#include <px4_tasks.h>
-#include <px4_posix.h>
-#include <px4_getopt.h>
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/defines.h>
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/tasks.h>
+#include <px4_platform_common/posix.h>
+#include <px4_platform_common/getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,10 +51,8 @@
 #include <math.h>
 #include <poll.h>
 
-#include <arch/board/board.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
-#include <platforms/px4_defines.h>
 
 #include "systemlib/err.h"
 #include "uORB/topics/actuator_controls.h"
@@ -112,7 +110,7 @@ usage(const char *reason)
 Application to test motor ramp up.
 
 Before starting, make sure to stop any running attitude controller:
-$ mc_att_control stop
+$ mc_rate_control stop
 $ fw_att_control stop
 
 When starting, a background task is started, runs for several seconds (as specified), then exits.
@@ -264,7 +262,9 @@ int set_out(int fd, int channel, unsigned long max_channels, int pwm)
 	for (unsigned i = 0; i < max_channels; i++) {
 		if (channel != -1) {
 			ret = ioctl(fd, PWM_SERVO_SET(i), (i == (unsigned)channel) ? pwm : 0);
+			PX4_INFO("Setting motor %d to PWM %d", i, (i == (unsigned)channel) ? pwm : 0);
 		} else {
+			PX4_INFO("[ch = -1] Setting motor %d to PWM %d", i, pwm);
 			ret = ioctl(fd, PWM_SERVO_SET(i), pwm);
 		}
 
@@ -295,7 +295,7 @@ int prepare_(int fd, unsigned long *max_channels)
 
 	if (orb_updated) {
 		PX4_ERR("ABORTING! Attitude control still active. Please ensure to shut down all controllers:\n"
-			"\tmc_att_control stop\n"
+			"\tmc_rate_control stop\n"
 			"\tfw_att_control stop\n");
 		return 1;
 	}
@@ -412,7 +412,7 @@ int motor_custom_test_thread_main(int argc, char *argv[])
 						test_state = TEST_RUNNING;
 					}
 
-					set_out(fd, -1, max_channels, output);
+					// set_out(fd, -1, max_channels, output);
 					break;
 				}
 
