@@ -264,11 +264,20 @@ void BatteryFailsafe::run()
 			{
 				hrt_abstime now = hrt_absolute_time();
 
-				// Check if the power module is disconnected
+				// Check for power module connection status change
 				if (!batteries.connected[i] && last_connected_state[i])
 				{
-					// Send power module disconnected warning
+					// Send power module disconnected notice
 					mavlink_log_info(&_mavlink_log_pub, "Power module ID:%d disconnected.", batteries.id[i]);
+				}
+				else if (batteries.connected[i] && !last_connected_state[i])
+				{
+					// Send power module connection notice
+					mavlink_log_info(&_mavlink_log_pub, "Power module ID:%d connected.", batteries.id[i]);
+				}
+				else
+				{
+					// No status change
 				}
 
 				// Update connection state
@@ -280,6 +289,30 @@ void BatteryFailsafe::run()
 					continue;
 				}
 
+				// Check for battery connection status change
+				float current_per_cell_voltage = batteries.voltage_v[i] / batteries.cell_count[i];
+
+				if (last_battery_voltage_per_cell[i] < SINGLE_CELL_CONNECTION_VOLTAGE
+				    && current_per_cell_voltage > SINGLE_CELL_CONNECTION_VOLTAGE)
+				{
+					// Send battery connected notice
+					mavlink_log_info(&_mavlink_log_pub, "Battery on PM ID:%d connected.", batteries.id[i]);
+				}
+				else if (last_battery_voltage_per_cell[i] > SINGLE_CELL_CONNECTION_VOLTAGE
+				    && current_per_cell_voltage < SINGLE_CELL_CONNECTION_VOLTAGE)
+				{
+					// Send battery  disconnected notice
+					mavlink_log_info(&_mavlink_log_pub, "Battery on PM ID:%d disconnected.", batteries.id[i]);
+				}
+				else
+				{
+					// No status change
+				}
+
+				// Update last know voltage for battery connection report.
+				last_battery_voltage_per_cell[i] = current_per_cell_voltage;
+
+				// Add up total current
 				total_current_multi_pack += batteries.current_a[i];
 
 				// If not armed, skip

@@ -50,6 +50,7 @@
 extern "C" __EXPORT int battery_failsafe_main(int argc, char *argv[]);
 
 #define VOLTAGE_DROP_DELAY_US 5000000
+#define SINGLE_CELL_CONNECTION_VOLTAGE 2.0f
 
 
 class BatteryFailsafe : public ModuleBase<BatteryFailsafe>, public ModuleParams
@@ -92,6 +93,7 @@ private:
 	bool armed = false;
 
 	bool last_connected_state[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {false};
+	float last_battery_voltage_per_cell[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {0.0f};
 
 	hrt_abstime last_time_above_critical_threshold[ORB_MULTI_MAX_INSTANCES];
 	hrt_abstime last_time_above_emergency_threshold[ORB_MULTI_MAX_INSTANCES];
