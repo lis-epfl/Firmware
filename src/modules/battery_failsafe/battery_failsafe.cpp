@@ -140,7 +140,7 @@ BatteryFailsafe::BatteryFailsafe(int example_param, bool example_flag)
 
 void BatteryFailsafe::run()
 {
-	px4_pollfd_struct_t fds[5];
+	px4_pollfd_struct_t fds[6];
 
 	int _battery_subs[ORB_MULTI_MAX_INSTANCES];
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
@@ -156,6 +156,11 @@ void BatteryFailsafe::run()
 	orb_set_interval(_battery_multi_pack_sub, 200);
 	fds[4].fd = _battery_multi_pack_sub;
 	fds[4].events = POLLIN;
+
+	int _vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
+	orb_set_interval(_vehicle_status_sub, 200);
+	fds[5].fd = _vehicle_status_sub;
+	fds[5].events = POLLIN;
 
 	// initialize parameters
 	parameters_update(true);
@@ -175,7 +180,18 @@ void BatteryFailsafe::run()
 			px4_usleep(50000);
 			continue;
 
-		} else if (fds[0].revents & POLLIN || fds[1].revents & POLLIN || fds[2].revents & POLLIN || fds[3].revents & POLLIN) {
+		} else {
+			// Check for armed status
+			if (fds[5].revents & POLLIN)
+			{
+				vehicle_status_s vehicle_status;
+				orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &vehicle_status);
+				armed = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED;
+			}
+
+			// Check from battery_status
+			if (fds[0].revents & POLLIN || fds[1].revents & POLLIN || fds[2].revents & POLLIN || fds[3].revents & POLLIN)
+			{
 
 			// clear total current
 			total_current = 0.0f;
@@ -184,7 +200,7 @@ void BatteryFailsafe::run()
 			{
 				if (!(fds[i].revents & POLLIN))
 				{
-					// No update on this instance
+					// No update on this instance or not armed
 					continue;
 				}
 
@@ -192,10 +208,15 @@ void BatteryFailsafe::run()
 				battery_status_s battery;
 				orb_copy(ORB_ID(battery_status), _battery_subs[i], &battery);
 
-				hrt_abstime now = hrt_absolute_time();
-
 				// sum current from this battery
 				total_current += battery.current_filtered_a;
+
+				if (!armed)
+				{
+					continue;
+				}
+
+				hrt_abstime now = hrt_absolute_time();
 
 				// save time to delay for momentary voltage drop
 				if (battery.remaining > _batt_crit_thr.get())
@@ -226,7 +247,11 @@ void BatteryFailsafe::run()
 
 			publishUpdate = true;
 
-		} else if (fds[4].revents & POLLIN) {
+			}
+
+			// Check from battery_status_multi_pack
+			if (fds[4].revents & POLLIN)
+			{
 
 			// Read from multi battery topics
 			battery_status_multi_pack_s batteries;
@@ -257,6 +282,12 @@ void BatteryFailsafe::run()
 
 				total_current_multi_pack += batteries.current_a[i];
 
+				// If not armed, skip
+				if (!armed)
+				{
+					continue;
+				}
+
 				// save time to delay for momentary voltage drop
 				if (batteries.voltage_v[i] > batteries.critical_voltage_v[i])
 				{
@@ -285,6 +316,7 @@ void BatteryFailsafe::run()
 
 			publishUpdate = true;
 
+			}
 		}
 
 		// Publish the information

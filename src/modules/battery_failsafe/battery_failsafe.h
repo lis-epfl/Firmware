@@ -42,6 +42,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/battery_status_multi_pack.h>
+#include <uORB/topics/vehicle_status.h>
 
 #include <uORB/Publication.hpp>
 #include <uORB/topics/battery_failsafe.h>
@@ -88,6 +89,7 @@ private:
 	uint8_t determine_warning(uint8_t current_warning, bool should_warn_critical, bool should_warn_emergency);
 
 	battery_failsafe_s failsafe_status;
+	bool armed = false;
 
 	bool last_connected_state[battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT] = {false};
 
