@@ -103,7 +103,6 @@ private:
 	float total_current_multi_pack = 0;
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::BFS_ENABLED>) _bfs_enabled,
 		(ParamFloat<px4::params::BAT_LOW_THR>) _batt_low_thr,
 		(ParamFloat<px4::params::BAT_CRIT_THR>) _batt_crit_thr,
 		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _batt_emergen_thr
