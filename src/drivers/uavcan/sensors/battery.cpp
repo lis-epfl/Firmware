@@ -134,7 +134,8 @@ UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::
 	// TODO: This will only work if at least 1 monitor is connected.
 	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
 	{
-		batteries.connected[i] = now - batteries_last_update[i] < BATTERY_UPDATE_TIMEOUT_US;
+		batteries.connected[i] = (batteries_last_update[i] != 0)
+					  && (now - batteries_last_update[i] < BATTERY_UPDATE_TIMEOUT_US);
 	}
 
 	publish(1, &batteries);
