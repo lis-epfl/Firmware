@@ -37,7 +37,7 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/posix.h>
 
-#define VOLTAGE_DROP_CHECK(now, last_time) (abs(now - last_time) > VOLTAGE_DROP_DELAY_US)
+#define VOLTAGE_DROP_CHECK(now, last_time) (abs((double)(now - last_time)) > VOLTAGE_DROP_DELAY_US)
 
 int BatteryFailsafe::print_status()
 {
@@ -198,12 +198,12 @@ void BatteryFailsafe::run()
 				total_current += battery.current_filtered_a;
 
 				// save time to delay for momentary voltage drop
-				if (battery.voltage_filtered_v > _batt_crit_thr.get())
+				if (battery.remaining > _batt_crit_thr.get())
 				{
 					last_time_above_critical_threshold[i] = now;
 				}
 
-				if (battery.voltage_filtered_v > _batt_emergen_thr.get())
+				if (battery.remaining > _batt_emergen_thr.get())
 				{
 					last_time_above_emergency_threshold[i] = now;
 				}
