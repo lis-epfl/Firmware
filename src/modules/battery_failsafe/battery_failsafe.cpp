@@ -268,12 +268,12 @@ void BatteryFailsafe::run()
 				if (!batteries.connected[i] && last_connected_state[i])
 				{
 					// Send power module disconnected notice
-					mavlink_log_info(&_mavlink_log_pub, "Power module ID:%d disconnected.", batteries.id[i]);
+					mavlink_log_info(&_mavlink_log_pub, "Power module SN:%d disconnected.", batteries.serial_number[i]);
 				}
 				else if (batteries.connected[i] && !last_connected_state[i])
 				{
 					// Send power module connection notice
-					mavlink_log_info(&_mavlink_log_pub, "Power module ID:%d connected.", batteries.id[i]);
+					mavlink_log_info(&_mavlink_log_pub, "Power module SN:%d connected.", batteries.serial_number[i]);
 				}
 				else
 				{
@@ -296,13 +296,13 @@ void BatteryFailsafe::run()
 				    && current_per_cell_voltage > SINGLE_CELL_CONNECTION_VOLTAGE)
 				{
 					// Send battery connected notice
-					mavlink_log_info(&_mavlink_log_pub, "Battery on PM ID:%d connected.", batteries.id[i]);
+					mavlink_log_info(&_mavlink_log_pub, "Battery on PM SN:%d connected.", batteries.serial_number[i]);
 				}
 				else if (last_battery_voltage_per_cell[i] > SINGLE_CELL_CONNECTION_VOLTAGE
 				    && current_per_cell_voltage < SINGLE_CELL_CONNECTION_VOLTAGE)
 				{
 					// Send battery  disconnected notice
-					mavlink_log_info(&_mavlink_log_pub, "Battery on PM ID:%d disconnected.", batteries.id[i]);
+					mavlink_log_info(&_mavlink_log_pub, "Battery on PM SN:%d disconnected.", batteries.serial_number[i]);
 				}
 				else
 				{
