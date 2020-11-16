@@ -187,6 +187,8 @@ void BatteryFailsafe::run()
 				vehicle_status_s vehicle_status;
 				orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &vehicle_status);
 				armed = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED;
+				redundant_frame_configuration = vehicle_status.system_type == 13 // Hexacopter
+								|| vehicle_status.system_type == 14; // Octacopter
 			}
 
 			// Check from battery_status
@@ -391,8 +393,6 @@ void BatteryFailsafe::parameters_update(bool force)
 	}
 
 	advanced_failsafe_enabled = _batt_fs_advanced_feature_enable.get();
-	redundant_frame_configuration = _frame_type.get() == 13 // Hexarotor, check MAV_TYPE
-					|| _frame_type.get() == 14; // Octarotor, check MAV_TYPE
 }
 
 int BatteryFailsafe::print_usage(const char *reason)

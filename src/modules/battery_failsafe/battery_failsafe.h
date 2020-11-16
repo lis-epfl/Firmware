@@ -127,7 +127,6 @@ private:
 		(ParamFloat<px4::params::BAT_LOW_THR>) _batt_low_thr,
 		(ParamFloat<px4::params::BAT_CRIT_THR>) _batt_crit_thr,
 		(ParamFloat<px4::params::BAT_EMERGEN_THR>) _batt_emergen_thr,
-		(ParamInt<px4::params::MAV_TYPE>) _frame_type,
 		(ParamInt<px4::params::BFS_ADVNC_FS>) _batt_fs_advanced_feature_enable
 	)
 
