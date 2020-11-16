@@ -140,7 +140,7 @@ BatteryFailsafe::BatteryFailsafe(int example_param, bool example_flag)
 
 void BatteryFailsafe::run()
 {
-	px4_pollfd_struct_t fds[6];
+	px4_pollfd_struct_t fds[7];
 
 	int _battery_subs[ORB_MULTI_MAX_INSTANCES];
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++)
@@ -161,6 +161,11 @@ void BatteryFailsafe::run()
 	orb_set_interval(_vehicle_status_sub, 200);
 	fds[5].fd = _vehicle_status_sub;
 	fds[5].events = POLLIN;
+
+	int _vehicle_att_sp_sub = orb_subscribe(ORB_ID(vehicle_attitude_setpoint));
+	orb_set_interval(_vehicle_att_sp_sub, 200);
+	fds[6].fd = _vehicle_att_sp_sub;
+	fds[6].events = POLLIN;
 
 	// initialize parameters
 	parameters_update(true);
@@ -189,6 +194,17 @@ void BatteryFailsafe::run()
 				armed = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED;
 				redundant_frame_configuration = vehicle_status.system_type == 13 // Hexacopter
 								|| vehicle_status.system_type == 14; // Octacopter
+			}
+
+			// Check for current thrust
+			if (fds[6].revents & POLLIN)
+			{
+				vehicle_attitude_setpoint_s vehicle_attitude_sp;
+				orb_copy(ORB_ID(vehicle_attitude_setpoint), _vehicle_att_sp_sub, &vehicle_attitude_sp);
+
+				// Filter thrust
+				// filtered thrust = weight * thrust_difference
+				current_thrust += THRUST_SMOOTHING_WEIGHT * ((-vehicle_attitude_sp.thrust_body[2]) - current_thrust);
 			}
 
 			// Check from battery_status
@@ -392,7 +408,8 @@ void BatteryFailsafe::parameters_update(bool force)
 		updateParams();
 	}
 
-	advanced_failsafe_enabled = _batt_fs_advanced_feature_enable.get();
+	advanced_failsafe_enabled = (bool) _batt_fs_advanced_feature_enable.get();
+	maximum_thrust_allowed = math::constrain(1.0f - _batt_fs_min_thrust_avail.get(), 0.0f, 0.8f);
 }
 
 int BatteryFailsafe::print_usage(const char *reason)
@@ -459,7 +476,8 @@ void BatteryFailsafe::advanced_failsafe_determine_warning()
 		}
 	}
 
-	if (advanced_failsafe_enabled && redundant_frame_configuration)
+	// Advance Failsafe Feature
+	if (advanced_failsafe_enabled && redundant_frame_configuration && current_thrust < maximum_thrust_allowed)
 	{
 		if (emergency_count > 1)
 		{
