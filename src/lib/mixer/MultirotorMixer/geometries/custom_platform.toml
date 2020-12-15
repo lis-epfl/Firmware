@@ -1,0 +1,32 @@
+# The custom platform (N = 4) - LIS
+
+[info]
+key = "Nc"
+description = "The custom platform (N = 4) - LIS"
+
+[rotor_default]
+axis      = [0.0, 0.0, -1.0]
+Ct        = 1.0
+Cm        = 0.05
+
+
+
+[[rotors]]
+name      = "rotor_0"
+position  = [0.13, 0.22, 0.0]
+direction = "CCW"
+
+[[rotors]]
+name      = "rotor_1"
+position  = [-0.13, -0.2, 0.0]
+direction = "CCW"
+
+[[rotors]]
+name     = "rotor_2"
+position = [0.13, -0.22, 0.0]
+direction = "CW"
+
+[[rotors]]
+name     = "rotor_3"
+position = [-0.13, 0.2, 0.0]
+direction = "CW"
