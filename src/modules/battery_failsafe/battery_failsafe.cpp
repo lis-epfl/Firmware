@@ -71,7 +71,7 @@ int BatteryFailsafe::task_spawn(int argc, char *argv[])
 	_task_id = px4_task_spawn_cmd("battery_failsafe",
 				      SCHED_DEFAULT,
 				      SCHED_PRIORITY_DEFAULT,
-				      2048,
+				      3072,
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
