@@ -563,6 +563,12 @@ else
 		reboot
 	fi
 
+	# Battery failsafe module
+	if param compare BFS_ENABLED 1
+	then
+		battery_failsafe start
+	fi
+
 #
 # End of autostart.
 #

@@ -39,10 +39,10 @@
 const char *const UavcanBatteryBridge::NAME = "battery";
 
 UavcanBatteryBridge::UavcanBatteryBridge(uavcan::INode &node) :
-	UavcanCDevSensorBridgeBase("uavcan_battery", "/dev/uavcan/battery", "/dev/battery", ORB_ID(battery_status)),
+	UavcanCDevSensorBridgeBase("uavcan_battery", "/dev/uavcan/battery", "/dev/battery", ORB_ID(battery_status_multi_pack)),
 	ModuleParams(nullptr),
 	_sub_battery(node),
-	_warning(battery_status_s::BATTERY_WARNING_NONE),
+	_warning(battery_status_multi_pack_s::BATTERY_WARNING_NONE),
 	_last_timestamp(0)
 {
 }
@@ -63,47 +63,82 @@ UavcanBatteryBridge::init()
 		return res;
 	}
 
+	// Initialize batteries ID by setting all instance ID to 255
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+	{
+		batteries.id[i] = 255;
+	}
+
 	return 0;
 }
 
 void
 UavcanBatteryBridge::battery_sub_cb(const uavcan::ReceivedDataStructure<uavcan::equipment::power::BatteryInfo> &msg)
 {
-	battery_status_s battery{};
+	// Find or assign the index of this node ID.
+	uint8_t nodeID = msg.getSrcNodeID().get();
+	uint8_t array_index = 255;
 
-	battery.timestamp = hrt_absolute_time();
-	battery.voltage_v = msg.voltage;
-	battery.voltage_filtered_v = msg.voltage;
-	battery.current_a = msg.current;
-	battery.current_filtered_a = msg.current;
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+	{
+		// There are no more node further down this array. Assign i index to this node.
+		if (batteries.id[i] == 255)
+		{
+			batteries.id[i] = nodeID;
+		}
+
+		// Find the corresponding battery id in the array
+		if (batteries.id[i] == nodeID)
+		{
+			// Break off for loop when found
+			array_index = i;
+			break;
+		}
+	}
+
+	// There are no more space in the message for this node ID
+	if (array_index == 255)
+	{
+		return;
+	}
+
+	// Transfer CAN message to uORB topic.
+	hrt_abstime now = hrt_absolute_time();
+	batteries.timestamp = now;
+
+	// decode model instance id
+	// TODO: Should we add a check to see if we need to decode every round?
+
+	batteries.cell_count[array_index] = (uint8_t)(((uint32_t)msg.model_instance_id << MDL_ID_CELL_COUNT_FROM_MSB_BIT) >> MDL_ID_TAKE_4_BITS);
+	batteries.serial_number[array_index] = (uint16_t)(((uint32_t)msg.model_instance_id << MDL_ID_SERIAL_FROM_MSB_BIT) >> MDL_ID_TAKE_12_BITS);
+	batteries.critical_voltage_v[array_index] = (float)(((uint32_t)msg.model_instance_id << MDL_ID_LOW_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS) / 10.0f;
+	batteries.emergency_voltage_v[array_index] = (float)(((uint32_t)msg.model_instance_id << MDL_ID_CRIT_VOLT_FROM_MSB_BIT) >> MDL_ID_TAKE_8_BITS) / 10.0f;
+
+	batteries.voltage_v[array_index] = msg.voltage;
+	batteries.current_a[array_index] = msg.current;
 	// battery.average_current_a = msg.;
 
-	sumDischarged(battery.timestamp, battery.current_a);
-	battery.discharged_mah = _discharged_mah;
+	sumDischarged(now, batteries.current_a[array_index]);
+	batteries.discharged_mah[array_index] = _discharged_mah;
 
-	battery.remaining = msg.state_of_charge_pct / 100.0f; // between 0 and 1
-	// battery.scale = msg.; // Power scaling factor, >= 1, or -1 if unknown
-	battery.temperature = msg.temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS; // Kelvin to Celcius
-	// battery.cell_count = msg.;
-	battery.connected = true;
-	battery.source = msg.status_flags & uavcan::equipment::power::BatteryInfo::STATUS_FLAG_IN_USE;
-	// battery.priority = msg.;
-	battery.capacity = msg.full_charge_capacity_wh;
-	// battery.cycle_count = msg.;
-	// battery.run_time_to_empty = msg.;
-	// battery.average_time_to_empty = msg.;
-	battery.serial_number = msg.model_instance_id;
-	battery.id = msg.getSrcNodeID().get();
+	batteries.remaining[array_index] = msg.state_of_charge_pct / 100.0f; // between 0 and 1
 
-	// battery.voltage_cell_v[0] = msg.;
-	// battery.max_cell_voltage_delta = msg.;
+	batteries.temperature[array_index] = msg.temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS; // Kelvin to Celcius
 
-	// battery.is_powering_off = msg.;
+	batteries.source[array_index] = msg.status_flags & uavcan::equipment::power::BatteryInfo::STATUS_FLAG_IN_USE;
+	batteries.capacity[array_index] = msg.full_charge_capacity_wh;
 
-	determineWarning(battery.remaining);
-	battery.warning = _warning;
+	batteries_last_update[array_index] = now;
 
-	publish(msg.getSrcNodeID().get(), &battery);
+	// Update monitor connection status
+	// TODO: This will only work if at least 1 monitor is connected.
+	for (int i = 0; i < battery_status_multi_pack_s::MAX_BATTERY_PACK_COUNT; i++)
+	{
+		batteries.connected[i] = (batteries_last_update[i] != 0)
+					  && (now - batteries_last_update[i] < BATTERY_UPDATE_TIMEOUT_US);
+	}
+
+	publish(1, &batteries);
 }
 
 void
@@ -126,19 +161,4 @@ UavcanBatteryBridge::sumDischarged(hrt_abstime timestamp, float current_a)
 	}
 
 	_last_timestamp = timestamp;
-}
-
-void
-UavcanBatteryBridge::determineWarning(float remaining)
-{
-	// propagate warning state only if the state is higher, otherwise remain in current warning state
-	if (remaining < _param_bat_emergen_thr.get() || (_warning == battery_status_s::BATTERY_WARNING_EMERGENCY)) {
-		_warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-
-	} else if (remaining < _param_bat_crit_thr.get() || (_warning == battery_status_s::BATTERY_WARNING_CRITICAL)) {
-		_warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-
-	} else if (remaining < _param_bat_low_thr.get() || (_warning == battery_status_s::BATTERY_WARNING_LOW)) {
-		_warning = battery_status_s::BATTERY_WARNING_LOW;
-	}
 }

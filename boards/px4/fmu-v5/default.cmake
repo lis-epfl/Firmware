@@ -62,6 +62,7 @@ px4_add_board(
 	MODULES
 		airspeed_selector
 		attitude_estimator_q
+		battery_failsafe # custom module
 		battery_status
 		camera_feedback
 		commander
