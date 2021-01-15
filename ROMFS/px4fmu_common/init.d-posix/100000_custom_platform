@@ -19,7 +19,6 @@
 
 sh /etc/init.d/rc.mc_defaults
 
-set MIXER_FILE /etc/mixers/custom_platform.main.mix
 set MIXER custom_platform
 
 set PWM_OUT 12345678
